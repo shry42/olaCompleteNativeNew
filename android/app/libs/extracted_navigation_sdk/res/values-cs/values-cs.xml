@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dropoff_dialog_negative_text">Zrušit</string>
+    <string name="dropoff_dialog_positive_text">Spustit další</string>
+    <string name="dropoff_dialog_text">Přejete si navigovat k dalšímu cíli?</string>
+    <string name="feedback_bad_route">Chybná\nCesta</string>
+    <string name="feedback_confusing_instruction">Zavádějicí\nPokyny</string>
+    <string name="feedback_general_issue">Jiné\nChyba mapy</string>
+    <string name="feedback_missing_exit">Chybějící\nvýjezd</string>
+    <string name="feedback_missing_road">Chybějící\nCesta</string>
+    <string name="feedback_not_allowed">Není\nPovoleno</string>
+    <string name="feedback_report_traffic">Hlášení\nProvozu</string>
+    <string name="feedback_road_closure">Cesta\nUzavřeno</string>
+    <string name="feedback_submitted">Zpětná vazba byla odeslána</string>
+    <string name="muted">Zvuk vypnut</string>
+    <string name="re_center">Vystředit</string>
+    <string name="report_problem">Zaslat problém</string>
+    <string name="rerouting">Přepočítávám...</string>
+    <string name="unmuted">Zvuk zapnut</string>
+</resources>

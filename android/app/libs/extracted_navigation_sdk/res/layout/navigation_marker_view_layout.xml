@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.mapbox.mapboxsdk.annotations.BubbleLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/bubbleLayout"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:paddingStart="@dimen/dp_12"
+    android:paddingEnd="@dimen/dp_12"
+    android:paddingTop="@dimen/dp_8"
+    android:paddingBottom="@dimen/dp_8"
+    app:maplibre_backgroundTintColor="@android:color/white"
+    app:maplibre_bl_arrowDirection="bottom"
+    app:maplibre_bl_arrowHeight="@dimen/dp_10"
+    app:maplibre_bl_arrowWidth="@dimen/dp_16"
+    app:maplibre_bl_arrowPosition="@dimen/dp_36"
+    app:maplibre_bl_bubbleColor="@android:color/white"
+    app:maplibre_bl_cornersRadius="@dimen/dp_16"
+    app:maplibre_bl_strokeColor="@color/map_time_marker_border_color"
+    app:maplibre_bl_strokeWidth="1dp"
+    app:maplibre_foregroundTintColor="@android:color/white">
+
+    <TextView
+        android:id="@+id/message_view"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginBottom="@dimen/dp_2"
+        android:fontFamily="@font/gentona_medium"
+        android:gravity="center"
+        android:maxLines="1"
+        android:orientation="vertical"
+        android:textColor="@android:color/black"
+        android:textSize="@dimen/sp_24"
+        tools:text="11" />
+</com.mapbox.mapboxsdk.annotations.BubbleLayout>

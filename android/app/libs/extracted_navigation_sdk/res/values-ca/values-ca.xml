@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="muted">Silenciat</string>
+    <string name="rerouting">Redirigint...</string>
+    <string name="unmuted">No silenciat</string>
+</resources>

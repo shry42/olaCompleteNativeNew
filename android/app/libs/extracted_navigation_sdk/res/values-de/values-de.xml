@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dropoff_dialog_negative_text">Abbrechen</string>
+    <string name="dropoff_dialog_positive_text">Nächste starten</string>
+    <string name="dropoff_dialog_text">Möchtest Du zum nächsten Ziel navigieren?</string>
+    <string name="feedback_bad_route">Schlechte
+Route</string>
+    <string name="feedback_confusing_instruction">Verwirrende
+Anweisung</string>
+    <string name="feedback_general_issue">Anderes
+Kartenproblem</string>
+    <string name="feedback_missing_exit">Fehlende
+Ausfahrt</string>
+    <string name="feedback_missing_road">Fehlende
+Straße</string>
+    <string name="feedback_not_allowed">Nicht
+erlaubt</string>
+    <string name="feedback_report_traffic">Verkehr
+melden</string>
+    <string name="feedback_road_closure">Straße
+gesperrt</string>
+    <string name="feedback_submitted">Rückmeldung gesendet</string>
+    <string name="muted">Stumm</string>
+    <string name="re_center">Neu zentrieren</string>
+    <string name="report_problem">Problem melden</string>
+    <string name="rerouting">Routenneuberechnung...</string>
+    <string name="unmuted">Ton an</string>
+</resources>

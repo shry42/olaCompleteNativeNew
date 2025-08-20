@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dropoff_dialog_negative_text">Cancelar</string>
+    <string name="muted">Som desligado</string>
+    <string name="re_center">Re-centralizar</string>
+    <string name="rerouting">Retraçando rota...</string>
+    <string name="unmuted">Som ligado</string>
+</resources>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dropoff_dialog_negative_text">Mégse</string>
+    <string name="feedback_bad_route">Rossz\nútvonal</string>
+    <string name="feedback_confusing_instruction">Megtévesztő\nutasítás</string>
+    <string name="feedback_general_issue">Egyéb\ntérképi hiba</string>
+    <string name="feedback_missing_exit">Hiányzó\nkijárat</string>
+    <string name="feedback_missing_road">Hiányzó\nút</string>
+    <string name="feedback_not_allowed">Nem\nengedélyezett</string>
+    <string name="feedback_road_closure">Lezárt\nút</string>
+    <string name="muted">Némítva</string>
+    <string name="rerouting">Újratervezés...</string>
+</resources>

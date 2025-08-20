@@ -1,0 +1,24 @@
+# Generated keep rule for Lifecycle observer adapter.
+-if class com.ola.maps.navigation.ui.v5.NavigationViewSubscriber {
+    <init>(...);
+}
+-keep class com.ola.maps.navigation.ui.v5.NavigationViewSubscriber_LifecycleAdapter {
+    <init>(...);
+}
+
+# Generated keep rule for Lifecycle observer adapter.
+-if class com.ola.maps.navigation.ui.v5.camera.NavigationCamera {
+    <init>(...);
+}
+-keep class com.ola.maps.navigation.ui.v5.camera.NavigationCamera_LifecycleAdapter {
+    <init>(...);
+}
+
+# Generated keep rule for Lifecycle observer adapter.
+-if class com.ola.maps.navigation.v5.navigation.NavigationMapRoute {
+    <init>(...);
+}
+-keep class com.ola.maps.navigation.v5.navigation.NavigationMapRoute_LifecycleAdapter {
+    <init>(...);
+}
+

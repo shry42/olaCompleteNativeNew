@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:parentTag="androidx.constraintlayout.widget.ConstraintLayout">
+
+    <com.mapbox.mapboxsdk.maps.MapView
+            android:id="@+id/navigationMapView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:maplibre_enableTilePrefetch="true"
+            app:maplibre_enableZMediaOverlay="true"
+            app:maplibre_foregroundLoadColor="@color/map_view_foreground"
+            app:maplibre_renderTextureMode="true"
+            app:maplibre_renderTextureTranslucentSurface="true"
+            app:maplibre_uiAttribution="false"
+            app:maplibre_uiCompass="false"
+            app:maplibre_uiDoubleTapGestures="true"
+            app:maplibre_uiLogo="false"
+            app:maplibre_uiRotateGestures="true"
+            app:maplibre_uiScrollGestures="true"
+            app:maplibre_uiTiltGestures="true"
+            app:maplibre_uiZoomGestures="true" />
+
+
+</merge>

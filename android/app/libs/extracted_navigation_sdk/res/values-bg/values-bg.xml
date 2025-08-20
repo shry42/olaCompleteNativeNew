@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dropoff_dialog_negative_text">Отказ</string>
+    <string name="dropoff_dialog_positive_text">Стартиране </string>
+    <string name="dropoff_dialog_text">Желаете ли да се придвижите до следващата дестинация?</string>
+    <string name="feedback_bad_route">Повреден\nМаршрут</string>
+    <string name="feedback_confusing_instruction">Объркващо\nУказание</string>
+    <string name="feedback_general_issue">Други проблеми\nс картата</string>
+    <string name="feedback_missing_exit">Липсващ\nИзход</string>
+    <string name="feedback_missing_road">Липсващ\nПът</string>
+    <string name="feedback_not_allowed">Непозволено</string>
+    <string name="feedback_report_traffic">Доклад\nТрафик</string>
+    <string name="feedback_road_closure">Затворен\nПът</string>
+    <string name="feedback_submitted">Известието е изпратено</string>
+    <string name="muted">Заглушено</string>
+    <string name="re_center">Центрирай</string>
+    <string name="report_problem">Известяване за проблем</string>
+    <string name="rerouting">Пренасочване...</string>
+    <string name="unmuted">Незаглушено</string>
+</resources>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dropoff_dialog_negative_text">Hủy bỏ</string>
+    <string name="dropoff_dialog_positive_text">Đi tiếp</string>
+    <string name="dropoff_dialog_text">Bạn có muốn đi tiếp đến nơi sau?</string>
+    <string name="feedback_bad_route">Đường\nSai</string>
+    <string name="feedback_confusing_instruction">Hướng dẫn\nKhó hiểu</string>
+    <string name="feedback_general_issue">Vấn đề\nBản đồ Khác</string>
+    <string name="feedback_missing_exit">Thiếu\nLối ra</string>
+    <string name="feedback_missing_road">Thiếu\nCon đường</string>
+    <string name="feedback_not_allowed">Cấm</string>
+    <string name="feedback_report_traffic">Báo cáo\nTắc đường</string>
+    <string name="feedback_road_closure">Đường\nĐóng cửa</string>
+    <string name="feedback_submitted">Đã Gửi Phản hồi</string>
+    <string name="muted">Tiếng Tắt</string>
+    <string name="re_center">Quay về Đường đi</string>
+    <string name="report_problem">Báo cáo Sự cố</string>
+    <string name="rerouting">Đang Tìm Đường đi Mới…</string>
+    <string name="unmuted">Tiếng Mở</string>
+</resources>

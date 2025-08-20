@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="border_green">#16AA51</color>
+    <color name="button_disable">#98CBA7</color>
+    <color name="button_exit_stroke">#161A1F</color>
+    <color name="button_exit_text">#D64D66</color>
+    <color name="button_save_outer">#4C3E43</color>
+    <color name="button_save_stroke_end">#242424</color>
+    <color name="button_save_stroke_start">#3C3C3C</color>
+    <color name="colorPrimary">#4D4F57</color>
+    <color name="colorShimmerBackground">#DEDEDE</color>
+    <color name="colorTextDark">#DBE0E6</color>
+    <color name="colorTextGreen">#118840</color>
+    <color name="colorTextLight">#ABBAC5</color>
+    <color name="colorTextRed">#C91A3A</color>
+    <color name="colorTextWhite">#ffffff</color>
+    <color name="colorTrans">#00000000</color>
+    <color name="color_text">#464646</color>
+    <color name="constant_white">#FFFFFF</color>
+    <color name="dark_default">#161A1F</color>
+    <color name="destination_name_text_color">#DBE0E6</color>
+    <color name="divider">#809298AA</color>
+    <color name="divider_color">#9298AA</color>
+    <color name="done_nav_btn_text_color">#434652</color>
+    <color name="edittext_bg">#161A1F</color>
+    <color name="edittext_color">#161A1F</color>
+    <color name="end_nav_btn_text_color">#D9C91A3A</color>
+    <color name="full_route_icon_color">#FFFFFF</color>
+    <color name="green_dark">#FF128C43</color>
+    <color name="green_shade">#FF0AC756</color>
+    <color name="layout_background">#000000</color>
+    <color name="light_blue">#161A1F</color>
+    <color name="light_gray">#8CFFFFFF</color>
+    <color name="light_green">#118840</color>
+    <color name="lighter_gray">#ddd</color>
+    <color name="map_distance_marker_selected_background">#FF191A1F</color>
+    <color name="map_distance_marker_selected_text_color">#FFFFFF</color>
+    <color name="map_distance_marker_unselected_background">#FF434652</color>
+    <color name="map_distance_marker_unselected_text_color">#FFDBE0E6</color>
+    <color name="map_time_marker_border_color">#40DADCE5</color>
+    <color name="map_view_foreground">#000000</color>
+    <color name="nav_menu_item_bg_center_color">#FFFFFF</color>
+    <color name="nav_menu_item_bg_color_selected">#161A1F</color>
+    <color name="nav_menu_item_bg_color_selected_end">#3E4A57</color>
+    <color name="nav_menu_item_bg_color_unselected">#161A1F</color>
+    <color name="nav_menu_item_bg_side_color_selected">#00FFFFFF</color>
+    <color name="nav_menu_item_color_selected">#DBE0E6</color>
+    <color name="nav_search_hint_color">#53657A</color>
+    <color name="navigation_icon_color">#FFFFFF</color>
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="ripple_color">#5C000000</color>
+    <color name="selected_blue_color">#DDE6F0</color>
+    <color name="selected_tab">#DBE0E6</color>
+    <color name="suggestion_label_color">#ABBAC5</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="text_bg_stroke">#161A1F</color>
+    <color name="transparent_bg">#00000000</color>
+    <color name="transwhite">#95ffffff</color>
+    <color name="unselected_tab">#ABBAC5</color>
+    <color name="white_bg">#000000</color>
+    <string name="default_map_view_style_url" translatable="false">/styles/default-dark-standard/style.json</string>
+    <string name="map_view_style_url" translatable="false">/maps/v1/styles/default-dark-standard/style.json</string>
+    <style name="Theme.OlaMaps" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        
+        <item name="colorPrimary">@color/purple_200</item>
+        <item name="colorPrimaryVariant">@color/purple_700</item>
+        <item name="colorOnPrimary">@color/black</item>
+        
+        <item name="colorSecondary">@color/teal_200</item>
+        <item name="colorSecondaryVariant">@color/teal_200</item>
+        <item name="colorOnSecondary">@color/black</item>
+        
+        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
+        
+    </style>
+</resources>

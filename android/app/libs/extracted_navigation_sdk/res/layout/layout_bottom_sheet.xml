@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:app="http://schemas.android.com/apk/res-auto"
+  xmlns:tools="http://schemas.android.com/tools"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="@android:color/transparent"
+  android:orientation="vertical"
+  android:paddingTop="@dimen/credit_bs_top_padding">
+
+  <androidx.cardview.widget.CardView
+    android:id="@+id/cardView"
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:layout_marginBottom="@dimen/credit_bs_bottom_corner_radius"
+    android:layout_weight="0.5"
+    android:outlineAmbientShadowColor="@android:color/transparent"
+    android:outlineSpotShadowColor="@android:color/transparent"
+    android:shadowRadius="0"
+    app:cardCornerRadius="@dimen/credit_bs_corner_radius"
+    tools:ignore="UnusedAttribute">
+
+    <ImageView
+      android:id="@+id/imgViewDragHandle"
+      android:layout_width="35dp"
+      android:layout_height="5dp"
+      android:layout_gravity="center_horizontal"
+      android:layout_marginTop="20dp"
+      android:elevation="10dp"
+      android:src="@drawable/ic_drag_handle" />
+
+    <ImageView
+      android:id="@+id/imgViewBg"
+      android:layout_width="match_parent"
+      android:layout_height="350dp"
+      android:scaleType="fitXY"
+      android:src="@drawable/bottom_sheet_bg_png" />
+  </androidx.cardview.widget.CardView>
+
+  <RelativeLayout
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:layout_weight="0.5"
+    android:background="@color/white"
+    android:paddingStart="25dp"
+    android:paddingEnd="25dp">
+
+    <ImageView
+      android:id="@+id/imgViewOlaMapLogo"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="20dp"
+      android:layout_marginBottom="15dp"
+      android:background="@drawable/bottom_sheet_ola_maps_logo" />
+
+    <TextView
+      android:id="@+id/bottom_sheet_credit_text"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_below="@id/imgViewOlaMapLogo"
+      android:lineHeight="27dp"
+      android:text="@string/bottom_sheet_credit_text"
+      android:textColor="@color/bottom_sheet_text_color"
+      android:textFontWeight="400"
+      android:textSize="@dimen/credit_bs_text_size"
+      android:fontFamily="@font/cbs_gentona_book"
+      tools:ignore="UnusedAttribute" />
+
+    <TextView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_below="@id/bottom_sheet_credit_text"
+      android:layout_marginTop="20dp"
+      android:lineHeight="16dp"
+      android:text="@string/bottom_sheet_credit_subtext"
+      android:textColor="@color/bottom_sheet_subtext_color"
+      android:textFontWeight="500"
+      android:textSize="@dimen/credit_bs_subtext_size"
+      android:fontFamily="@font/cbs_gentona_book"
+      tools:ignore="UnusedAttribute" />
+
+  </RelativeLayout>
+
+</LinearLayout>

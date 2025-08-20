@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dropoff_dialog_negative_text">Отмена</string>
+    <string name="dropoff_dialog_positive_text">Начать другой</string>
+    <string name="dropoff_dialog_text">Проложить маршрут к следующему пункту назначения?</string>
+    <string name="feedback_bad_route">Плохой\nмаршрут</string>
+    <string name="feedback_confusing_instruction">Непонятная\nинструкция</string>
+    <string name="feedback_general_issue">Ошибка\nна карте</string>
+    <string name="feedback_missing_exit">Нет\nсъезда</string>
+    <string name="feedback_missing_road">Нет\nдороги</string>
+    <string name="feedback_not_allowed">Манёвр\nне допустим</string>
+    <string name="feedback_report_traffic">Сообщить\nо заторе</string>
+    <string name="feedback_road_closure">Дорога\nзакрыта</string>
+    <string name="muted">Не проговаривать</string>
+    <string name="re_center">Возобновить</string>
+    <string name="rerouting">Пересчёт маршрута…</string>
+    <string name="unmuted">Проговаривать</string>
+</resources>

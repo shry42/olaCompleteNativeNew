@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dropoff_dialog_negative_text">ပယ်ဖျက်သည်</string>
+    <string name="dropoff_dialog_positive_text">နောက်ထပ်တစ်ခု</string>
+    <string name="dropoff_dialog_text">နောက်ထပ်နေရာကိုလမ်းညွန်ချက်လိုချင်ပါသလား</string>
+    <string name="feedback_bad_route">မေကာင္းတဲ့
+လမ္းေၾကာင္း</string>
+    <string name="feedback_confusing_instruction">ညွန်ကြားချက်ရှုတ်ထွေးနေသည်</string>
+    <string name="feedback_general_issue">အခြား
+မြေပုံ ပြဿနာ</string>
+    <string name="feedback_missing_exit">ထွက်ပေါက်ပျောက်နေသည်</string>
+    <string name="feedback_missing_road">လမ်းပျောက်နေသည်</string>
+    <string name="feedback_not_allowed">ခွင့်ပြုချက်မရှိ</string>
+    <string name="feedback_report_traffic">ယာဉ်ကြောပိတ်ဆို့မှုအစီရင်ခံသည်</string>
+    <string name="feedback_road_closure">လမ်းပိတ်သွားပြီ</string>
+    <string name="muted">အသံပိတ်</string>
+    <string name="re_center">အလယ်သို့ပြန်ထားမည်</string>
+    <string name="rerouting">လမ်းကြောင်းပြန်ရှာနေသည်.....</string>
+    <string name="unmuted">အသံပြန်ဖွင့်</string>
+</resources>

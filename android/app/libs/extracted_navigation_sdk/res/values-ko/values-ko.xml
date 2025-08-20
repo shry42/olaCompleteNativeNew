@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dropoff_dialog_negative_text">취소</string>
+    <string name="dropoff_dialog_positive_text">다음 목적지로 이동</string>
+    <string name="dropoff_dialog_text">다음 목적지로 이동하시겠습니까?</string>
+    <string name="feedback_bad_route">잘못된\n경로</string>
+    <string name="feedback_confusing_instruction">\n지시 혼동</string>
+    <string name="feedback_general_issue">기타\n지도 이슈</string>
+    <string name="feedback_missing_exit">없어진\n출구</string>
+    <string name="feedback_missing_road">없어진\n도로</string>
+    <string name="feedback_not_allowed">이용\n불가</string>
+    <string name="feedback_report_traffic">교통\n안내</string>
+    <string name="feedback_road_closure">통행\n금지</string>
+    <string name="muted">음소거</string>
+    <string name="re_center">중앙으로 복귀</string>
+    <string name="rerouting">경로 재설정</string>
+    <string name="unmuted">음소거 해제</string>
+</resources>

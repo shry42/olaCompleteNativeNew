@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dropoff_dialog_negative_text">ביטול</string>
+    <string name="dropoff_dialog_positive_text">התחל</string>
+    <string name="dropoff_dialog_text">האם תרצה לנווט אל היעד הבא?</string>
+    <string name="feedback_bad_route">דרך\nמשובשת</string>
+    <string name="feedback_confusing_instruction">הוראות\nמבולבלות</string>
+    <string name="feedback_general_issue">בעיה אחרת\nבמפה</string>
+    <string name="feedback_missing_exit">יציאה\nלא קיימת</string>
+    <string name="feedback_missing_road">דרך\nלא קיימת</string>
+    <string name="feedback_not_allowed">לא\nמורשה</string>
+    <string name="feedback_report_traffic">דיווח\nתנועה</string>
+    <string name="feedback_road_closure">דרך\nסגורה</string>
+    <string name="muted">שמע כבוי</string>
+    <string name="re_center">מרכוז</string>
+    <string name="rerouting">מחשב מסלול מחדש...</string>
+    <string name="unmuted">שמע פועל</string>
+</resources>

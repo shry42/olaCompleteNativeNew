@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dropoff_dialog_negative_text">Скасувати</string>
+    <string name="dropoff_dialog_positive_text">Розпочати наступний</string>
+    <string name="dropoff_dialog_text">Бажаєте продовжити подорож до наступного пункту призначення?</string>
+    <string name="feedback_bad_route">Незручний\nмаршрут</string>
+    <string name="feedback_confusing_instruction">Незрозумілі\nінструкції</string>
+    <string name="feedback_general_issue">Помилки\nна мапі</string>
+    <string name="feedback_missing_exit">Відсутній\nвиїзд</string>
+    <string name="feedback_missing_road">Дорога\nвідсутня</string>
+    <string name="feedback_not_allowed">Заборонено</string>
+    <string name="feedback_report_traffic">Затор на\nдорозі</string>
+    <string name="feedback_road_closure">Дорогу\nперекрито</string>
+    <string name="muted">Вимкнено</string>
+    <string name="re_center">Центрувати</string>
+    <string name="rerouting">Зміна маршруту…</string>
+    <string name="unmuted">Увімкнено</string>
+</resources>

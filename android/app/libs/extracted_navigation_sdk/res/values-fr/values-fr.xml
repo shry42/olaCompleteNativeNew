@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dropoff_dialog_negative_text">Annuler</string>
+    <string name="dropoff_dialog_positive_text">Aller à la prochaine destination</string>
+    <string name="dropoff_dialog_text">Voulez vous être guidé vers la prochaine destination? </string>
+    <string name="feedback_bad_route">Mauvaise\nroute</string>
+    <string name="feedback_confusing_instruction">Instructions\nnon précises</string>
+    <string name="feedback_general_issue">Autre erreur\nsur la carte</string>
+    <string name="feedback_missing_exit">Sortie\nmanquante</string>
+    <string name="feedback_missing_road">Route\nmanquante</string>
+    <string name="feedback_not_allowed">Passage\ninterdit</string>
+    <string name="feedback_report_traffic">Bouchon</string>
+    <string name="feedback_road_closure">Route\nfermée</string>
+    <string name="muted">Muet</string>
+    <string name="re_center">Recentrer</string>
+    <string name="rerouting">Recalcul de l’itinéraire...</string>
+    <string name="unmuted">Audible</string>
+</resources>

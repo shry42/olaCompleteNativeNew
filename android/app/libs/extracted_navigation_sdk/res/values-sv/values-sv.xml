@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dropoff_dialog_negative_text">Avbryt</string>
+    <string name="dropoff_dialog_positive_text">Börja nästa</string>
+    <string name="dropoff_dialog_text">Vill du navigera till nästa destination?</string>
+    <string name="feedback_bad_route">Dålig\nRutt</string>
+    <string name="feedback_confusing_instruction">Förvirrande\nInstruktion</string>
+    <string name="feedback_general_issue">Övrigt\nKartproblem</string>
+    <string name="feedback_missing_exit">Avfart\nSaknas</string>
+    <string name="feedback_missing_road">Väg\nSaknas</string>
+    <string name="feedback_not_allowed">Ej\nTillåtet</string>
+    <string name="feedback_report_traffic">Rapportera\nTrafik</string>
+    <string name="feedback_road_closure">Väg\nAvstängd</string>
+    <string name="muted">Tyst</string>
+    <string name="re_center">Centrera</string>
+    <string name="rerouting">Uppdaterar rutt…</string>
+    <string name="unmuted">Ej tyst</string>
+</resources>

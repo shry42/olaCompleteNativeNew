@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dropoff_dialog_negative_text">Afbryd</string>
+    <string name="dropoff_dialog_positive_text">Start næste</string>
+    <string name="dropoff_dialog_text">Vil du navigerer til næste destination?</string>
+    <string name="feedback_bad_route">Dårlig\nRute</string>
+    <string name="feedback_confusing_instruction">Modsignede\nInstruktioner</string>
+    <string name="feedback_general_issue">Andre\nkort problemer</string>
+    <string name="feedback_missing_exit">manglende\nAfkørsel</string>
+    <string name="feedback_missing_road">manglende\nVej</string>
+    <string name="feedback_not_allowed">Ikke\nTilladt</string>
+    <string name="feedback_report_traffic">Rapporter\nTrafik</string>
+    <string name="feedback_road_closure">Vej\nLukket</string>
+    <string name="muted">Dæmpet </string>
+    <string name="re_center">Genoptag</string>
+    <string name="rerouting">Omdirigere</string>
+    <string name="unmuted">Genaktiveret </string>
+</resources>
