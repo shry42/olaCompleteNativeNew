@@ -1,9 +1,11 @@
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class NavigationService {
   static const MethodChannel _channel = MethodChannel('ola_maps_channel');
   
-  // Callbacks
+  // Callbacks  
   Function()? onMapReady;
   Function(String error)? onMapError;
   Function(Map<String, dynamic> routeData)? onRouteCalculated;
@@ -324,3 +326,4 @@ class RoutePoint {
     );
   }
 }
+
