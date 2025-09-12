@@ -21,14 +21,14 @@ class BackgroundLocationService extends TaskHandler {
     _vehicleId = vehicleId.isEmpty ? 'ALP4' : vehicleId;
   }
 
-  // Get next sequential timestamp (5 minutes apart)
+  // Get next sequential timestamp (5 seconds apart)
   static DateTime _getNextSequentialTimestamp() {
     if (_isRetryingFailed && _failedUpdates.isNotEmpty) {
       // Return the timestamp of the first failed update
       return DateTime.parse(_failedUpdates.first['timestamp']);
     } else {
-      // Return next 5-minute interval
-      return _lastSuccessfulTimestamp.add(const Duration(minutes: 5));
+      // Return next 5-second interval
+      return _lastSuccessfulTimestamp.add(const Duration(seconds: 5));
     }
   }
 
@@ -182,7 +182,7 @@ class BackgroundLocationService extends TaskHandler {
       // Generate dynamic device info
       final deviceInfo = await _getDeviceInfo();
       
-      // Get next sequential timestamp (5 minutes apart)
+      // Get next sequential timestamp (5 seconds apart)
       final nextTimestamp = _getNextSequentialTimestamp();
       final timestampString = nextTimestamp.toIso8601String().substring(0, 19) + 'Z';
         
@@ -196,7 +196,7 @@ class BackgroundLocationService extends TaskHandler {
           "Latitude": position.latitude,
           "Longitude": position.longitude,
           "Speed": speedKmh,
-          "CreatedAt": timestampString, // Sequential timestamp (5 minutes apart)
+          "CreatedAt": timestampString, // Sequential timestamp (5 seconds apart)
           "BatteryPercentage": deviceInfo['batteryPercentage'],
           "PhoneMode": deviceInfo['phoneMode'],
           "LocationType": "live",
