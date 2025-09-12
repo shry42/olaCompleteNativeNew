@@ -301,6 +301,7 @@ Future<void> _selectPlace(PlaceResult place) async {
   Future<void> _recenterMap() async {
     try {
       await NavigationService.recenterMap();
+      // _showSnackBar('🎯 Map recentered', Colors.blue);
     } catch (e) {
       _showSnackBar('Error recentering map: $e', Colors.red);
     }
@@ -635,10 +636,6 @@ Future<void> _selectPlace(PlaceResult place) async {
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.my_location, color: Colors.white),
-                      onPressed: _recenterMap,
-                    ),
                   ],
                 ),
               ),
@@ -744,6 +741,19 @@ Future<void> _selectPlace(PlaceResult place) async {
             ),
         ],
       ),
+      
+      // Add small floating action button for recentering map
+      floatingActionButton: _isMapReady ? SizedBox(
+        width: 45,
+        height: 45,
+        child: FloatingActionButton(
+          onPressed: _recenterMap,
+          backgroundColor: Colors.white,
+          elevation: 3,
+          child: const Icon(Icons.my_location, color: Colors.blue, size: 20),
+          tooltip: 'Recenter Map',
+        ),
+      ) : null,
     );
   }
 
