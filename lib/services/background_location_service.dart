@@ -10,10 +10,91 @@ class BackgroundLocationService extends TaskHandler {
   static String _vehicleId = 'ALP4';
   static int _updateCounter = 0;
   
+  // Sequential timestamp system
+  static DateTime _lastSuccessfulTimestamp = DateTime.now();
+  static List<Map<String, dynamic>> _failedUpdates = [];
+  static bool _isRetryingFailed = false;
+  
   // Silent operation - no retry mechanism
   
   static void setVehicleId(String vehicleId) {
     _vehicleId = vehicleId.isEmpty ? 'ALP4' : vehicleId;
+  }
+
+  // Get next sequential timestamp (5 minutes apart)
+  static DateTime _getNextSequentialTimestamp() {
+    if (_isRetryingFailed && _failedUpdates.isNotEmpty) {
+      // Return the timestamp of the first failed update
+      return DateTime.parse(_failedUpdates.first['timestamp']);
+    } else {
+      // Return next 5-minute interval
+      return _lastSuccessfulTimestamp.add(const Duration(minutes: 5));
+    }
+  }
+
+  // Add failed update to cache
+  static void _addFailedUpdate(Map<String, dynamic> payload) {
+    final timestamp = _getNextSequentialTimestamp();
+    final failedUpdate = {
+      'timestamp': timestamp.toIso8601String().substring(0, 19) + 'Z',
+      'payload': payload,
+      'retryCount': 0,
+    };
+    _failedUpdates.add(failedUpdate);
+    print('📦 [BACKGROUND] Cached failed update for timestamp: ${failedUpdate['timestamp']}');
+  }
+
+  // Retry failed updates in sequence
+  static Future<void> _retryFailedUpdates() async {
+    if (_failedUpdates.isEmpty || _isRetryingFailed) return;
+    
+    _isRetryingFailed = true;
+    print('🔄 [BACKGROUND] Starting retry of ${_failedUpdates.length} failed updates...');
+    
+    while (_failedUpdates.isNotEmpty) {
+      final failedUpdate = _failedUpdates.first;
+      failedUpdate['retryCount'] = (failedUpdate['retryCount'] ?? 0) + 1;
+      
+      print('🔄 [BACKGROUND] Retrying update #${failedUpdate['retryCount']} for timestamp: ${failedUpdate['timestamp']}');
+      
+      try {
+        final response = await http.post(
+          Uri.parse(_apiUrl),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode(failedUpdate['payload']),
+        );
+        
+        if (response.statusCode == 200) {
+          print('✅ [BACKGROUND] Retry successful for timestamp: ${failedUpdate['timestamp']}');
+          _failedUpdates.removeAt(0);
+          _lastSuccessfulTimestamp = DateTime.parse(failedUpdate['timestamp'].replaceAll('Z', ''));
+          _updateCounter++;
+        } else {
+          print('❌ [BACKGROUND] Retry failed for timestamp: ${failedUpdate['timestamp']} (Status: ${response.statusCode})');
+          if (failedUpdate['retryCount'] >= 3) {
+            print('🚫 [BACKGROUND] Max retries reached, removing from cache: ${failedUpdate['timestamp']}');
+            _failedUpdates.removeAt(0);
+          } else {
+            // Move to end of queue for later retry
+            _failedUpdates.add(_failedUpdates.removeAt(0));
+          }
+        }
+      } catch (e) {
+        print('❌ [BACKGROUND] Retry error for timestamp: ${failedUpdate['timestamp']}: $e');
+        if (failedUpdate['retryCount'] >= 3) {
+          print('🚫 [BACKGROUND] Max retries reached, removing from cache: ${failedUpdate['timestamp']}');
+          _failedUpdates.removeAt(0);
+        } else {
+          _failedUpdates.add(_failedUpdates.removeAt(0));
+        }
+      }
+      
+      // Wait 2 seconds between retries
+      await Future.delayed(const Duration(seconds: 2));
+    }
+    
+    _isRetryingFailed = false;
+    print('✅ [BACKGROUND] Finished retrying failed updates');
   }
 
   @override
@@ -69,6 +150,9 @@ class BackgroundLocationService extends TaskHandler {
 
   static Future<void> _sendLocationUpdate() async {
     try {
+      // First, retry any failed updates
+      await _retryFailedUpdates();
+      
       // Check if location services are enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
@@ -97,6 +181,10 @@ class BackgroundLocationService extends TaskHandler {
       
       // Generate dynamic device info
       final deviceInfo = await _getDeviceInfo();
+      
+      // Get next sequential timestamp (5 minutes apart)
+      final nextTimestamp = _getNextSequentialTimestamp();
+      final timestampString = nextTimestamp.toIso8601String().substring(0, 19) + 'Z';
         
       // Prepare API payload with all parameters
       final Map<String, dynamic> payload = {
@@ -108,7 +196,7 @@ class BackgroundLocationService extends TaskHandler {
           "Latitude": position.latitude,
           "Longitude": position.longitude,
           "Speed": speedKmh,
-          "CreatedAt": "${DateTime.now().toIso8601String().substring(0, 19)}Z", // Current local time in format "2025-09-03T18:54:00Z"
+          "CreatedAt": timestampString, // Sequential timestamp (5 minutes apart)
           "BatteryPercentage": deviceInfo['batteryPercentage'],
           "PhoneMode": deviceInfo['phoneMode'],
           "LocationType": "live",
@@ -124,7 +212,8 @@ class BackgroundLocationService extends TaskHandler {
         }
       };
         
-      print('📤 [BACKGROUND] Sending GPS update #${_updateCounter + 1}: Lat: ${position.latitude}, Lng: ${position.longitude}, Speed: ${speedKmh} km/h');
+      print('📤 [BACKGROUND] Sending SEQUENTIAL GPS update: Lat: ${position.latitude}, Lng: ${position.longitude}, Speed: ${speedKmh} km/h');
+      print('📤 [BACKGROUND] Sequential Timestamp: $timestampString');
         
       // Make API call
       final response = await http.post(
@@ -135,15 +224,17 @@ class BackgroundLocationService extends TaskHandler {
         
       if (response.statusCode == 200) {
         _updateCounter++;
-        print('✅ [BACKGROUND] Location update #${_updateCounter} sent successfully');
+        _lastSuccessfulTimestamp = nextTimestamp;
+        print('✅ [BACKGROUND] Sequential update #$_updateCounter sent successfully for timestamp: $timestampString');
         
         // Update foreground task notification
         FlutterForegroundTask.updateService(
-          notificationTitle: '🚒 Mumbai Fire Brigade Tracking',
-          notificationText: '📍 Update #${_updateCounter} • Speed: ${speedKmh} km/h • ID: ${_vehicleId}',
+          notificationTitle: '🚒 MFB Field Tracking',
+          notificationText: '📍 Update #$_updateCounter • Speed: ${speedKmh} km/h • ID: $_vehicleId',
         );
       } else {
-        // Silent error handling - no user notification
+        print('❌ [BACKGROUND] Failed to send sequential update for timestamp: $timestampString (Status: ${response.statusCode})');
+        _addFailedUpdate(payload);
       }
     } catch (e) {
       // Silent error handling - no user notification

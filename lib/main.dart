@@ -98,6 +98,11 @@ class _NavigationScreenState extends State<NavigationScreen> {
   int _secondsElapsed = 0;
   double _lastSpeed = 0.0;
   int _batteryLevel = 100;
+  
+  // Sequential timestamp system
+  DateTime _lastSuccessfulTimestamp = DateTime.now();
+  List<Map<String, dynamic>> _failedUpdates = [];
+  bool _isRetryingFailed = false;
 
 
   @override
@@ -892,6 +897,82 @@ Future<void> _selectPlace(PlaceResult place) async {
     }
   }
 
+  // Get next sequential timestamp (5 minutes apart)
+  DateTime _getNextSequentialTimestamp() {
+    if (_isRetryingFailed && _failedUpdates.isNotEmpty) {
+      // Return the timestamp of the first failed update
+      return DateTime.parse(_failedUpdates.first['timestamp']);
+    } else {
+      // Return next 5-minute interval
+      return _lastSuccessfulTimestamp.add(const Duration(minutes: 5));
+    }
+  }
+
+  // Add failed update to cache
+  void _addFailedUpdate(Map<String, dynamic> payload) {
+    final timestamp = _getNextSequentialTimestamp();
+    final failedUpdate = {
+      'timestamp': timestamp.toIso8601String().substring(0, 19) + 'Z',
+      'payload': payload,
+      'retryCount': 0,
+    };
+    _failedUpdates.add(failedUpdate);
+    print('📦 Cached failed update for timestamp: ${failedUpdate['timestamp']}');
+  }
+
+  // Retry failed updates in sequence
+  Future<void> _retryFailedUpdates() async {
+    if (_failedUpdates.isEmpty || _isRetryingFailed) return;
+    
+    _isRetryingFailed = true;
+    print('🔄 Starting retry of ${_failedUpdates.length} failed updates...');
+    
+    while (_failedUpdates.isNotEmpty) {
+      final failedUpdate = _failedUpdates.first;
+      failedUpdate['retryCount'] = (failedUpdate['retryCount'] ?? 0) + 1;
+      
+      print('🔄 Retrying update #${failedUpdate['retryCount']} for timestamp: ${failedUpdate['timestamp']}');
+      
+      try {
+        final response = await http.post(
+          Uri.parse('http://115.242.59.130:9000/api/Common/CommonAPI'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode(failedUpdate['payload']),
+        );
+        
+        if (response.statusCode == 200) {
+          print('✅ Retry successful for timestamp: ${failedUpdate['timestamp']}');
+          _failedUpdates.removeAt(0);
+          _lastSuccessfulTimestamp = DateTime.parse(failedUpdate['timestamp'].replaceAll('Z', ''));
+          _updateCounter++;
+        } else {
+          print('❌ Retry failed for timestamp: ${failedUpdate['timestamp']} (Status: ${response.statusCode})');
+          if (failedUpdate['retryCount'] >= 3) {
+            print('🚫 Max retries reached, removing from cache: ${failedUpdate['timestamp']}');
+            _failedUpdates.removeAt(0);
+          } else {
+            // Move to end of queue for later retry
+            _failedUpdates.add(_failedUpdates.removeAt(0));
+          }
+        }
+      } catch (e) {
+        print('❌ Retry error for timestamp: ${failedUpdate['timestamp']}: $e');
+        if (failedUpdate['retryCount'] >= 3) {
+          print('🚫 Max retries reached, removing from cache: ${failedUpdate['timestamp']}');
+          _failedUpdates.removeAt(0);
+        } else {
+          _failedUpdates.add(_failedUpdates.removeAt(0));
+        }
+      }
+      
+      // Wait 2 seconds between retries
+      await Future.delayed(const Duration(seconds: 2));
+    }
+    
+    _isRetryingFailed = false;
+    print('✅ Finished retrying failed updates');
+  }
+
   Future<Map<String, dynamic>> _getDeviceInfo() async {
     // Get real battery level
     await _updateBatteryLevel();
@@ -937,6 +1018,9 @@ Future<void> _selectPlace(PlaceResult place) async {
   
   Future<void> _sendLocationUpdate() async {
     try {
+      // First, retry any failed updates
+      await _retryFailedUpdates();
+      
       // Update battery level
       await _updateBatteryLevel();
       
@@ -977,18 +1061,22 @@ Future<void> _selectPlace(PlaceResult place) async {
       
       // Generate dynamic values for more realistic data
       final deviceInfo = await _getDeviceInfo();
+      
+      // Get next sequential timestamp (5 minutes apart)
+      final nextTimestamp = _getNextSequentialTimestamp();
+      final timestampString = nextTimestamp.toIso8601String().substring(0, 19) + 'Z';
         
-              // Prepare API payload with all parameters from API response structure
-        final Map<String, dynamic> payload = {
-          "storedProcedureName": "sp_HandleDeviceLocation",
-          "DbType": "SQL",
-          "parameters": {
-            "mode": 1,
-            "UnitId": deviceInfo['unitId'],
-            "Latitude": position.latitude,   // Fresh GPS coordinates
-            "Longitude": position.longitude, // Fresh GPS coordinates
-            "Speed": speedKmh, // 100% Real GPS speed in km/h
-            "CreatedAt": "${DateTime.now().toIso8601String().substring(0, 19)}Z", // Current real-time timestamp
+      // Prepare API payload with all parameters from API response structure
+      final Map<String, dynamic> payload = {
+        "storedProcedureName": "sp_HandleDeviceLocation",
+        "DbType": "SQL",
+        "parameters": {
+          "mode": 1,
+          "UnitId": deviceInfo['unitId'],
+          "Latitude": position.latitude,   // Fresh GPS coordinates
+          "Longitude": position.longitude, // Fresh GPS coordinates
+          "Speed": speedKmh, // 100% Real GPS speed in km/h
+          "CreatedAt": timestampString, // Sequential timestamp (5 minutes apart)
             "BatteryPercentage": deviceInfo['batteryPercentage'],
             "PhoneMode": deviceInfo['phoneMode'],
             "LocationType": "live",
@@ -1004,9 +1092,8 @@ Future<void> _selectPlace(PlaceResult place) async {
           }
         };
         
-        final currentTime = DateTime.now().toIso8601String().substring(0, 19);
-        print('📤 Sending LIVE GPS update #${_updateCounter + 1}: Lat: ${position.latitude}, Lng: ${position.longitude}, Speed: ${speedKmh} km/h (REAL GPS)');
-        print('📤 Timestamp: $currentTime');
+        print('📤 Sending SEQUENTIAL GPS update: Lat: ${position.latitude}, Lng: ${position.longitude}, Speed: ${speedKmh} km/h');
+        print('📤 Sequential Timestamp: $timestampString');
         print('📤 Full payload: ${json.encode(payload)}');
         
         // Make API call
@@ -1019,20 +1106,21 @@ Future<void> _selectPlace(PlaceResult place) async {
         );
         
         if (response.statusCode == 200) {
-          final responseData = json.decode(response.body);
+          _updateCounter++;
+          _lastSuccessfulTimestamp = nextTimestamp;
           setState(() {
-            _updateCounter++;
             _lastSpeed = speedKmh.toDouble();
           });
-          print('✅ Location update #${_updateCounter} sent successfully: $responseData');
+          print('✅ Sequential update #$_updateCounter sent successfully for timestamp: $timestampString');
           
           // Show success message less frequently to avoid spam
           if (_isTrackingStarted && _updateCounter % 5 == 0) { // Show every 5th update
-            _showSnackBar('📍 ${_updateCounter} location updates sent', Colors.blue);
+            _showSnackBar('📍 ${_updateCounter} sequential updates sent', Colors.blue);
           }
         } else {
-          print('❌ API call failed: ${response.statusCode} - ${response.body}');
-          _showSnackBar('⚠️ Location update failed', Colors.orange);
+          print('❌ Failed to send sequential update for timestamp: $timestampString (Status: ${response.statusCode})');
+          _addFailedUpdate(payload);
+          _showSnackBar('⚠️ Failed to send update, will retry: $timestampString', Colors.orange);
         }
       
     } catch (e) {
