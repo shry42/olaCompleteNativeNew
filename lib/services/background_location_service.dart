@@ -4,6 +4,7 @@ import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:battery_plus/battery_plus.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 class BackgroundLocationService extends TaskHandler {
   static const String _apiUrl = 'http://115.242.59.130:9000/api/Common/CommonAPI';
@@ -214,6 +215,16 @@ class BackgroundLocationService extends TaskHandler {
         
       print('📤 [BACKGROUND] Sending SEQUENTIAL GPS update: Lat: ${position.latitude}, Lng: ${position.longitude}, Speed: ${speedKmh} km/h');
       print('📤 [BACKGROUND] Sequential Timestamp: $timestampString');
+        
+      // Check internet connectivity before making API call
+      final connectivityResults = await Connectivity().checkConnectivity();
+      final isConnected = connectivityResults.isNotEmpty && !connectivityResults.contains(ConnectivityResult.none);
+      
+      if (!isConnected) {
+        print('❌ [BACKGROUND] No internet connection - adding to failed updates cache');
+        _addFailedUpdate(payload);
+        return;
+      }
         
       // Make API call
       final response = await http.post(

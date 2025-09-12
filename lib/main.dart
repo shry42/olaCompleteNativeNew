@@ -10,6 +10,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'services/navigation_service.dart'; // Import your new service
 import 'services/background_location_service.dart';
+import 'services/connectivity_service.dart';
 import 'screens/login_screen.dart'; // Import login screen
 
 void main() {
@@ -79,8 +80,9 @@ class NavigationScreen extends StatefulWidget {
   State<NavigationScreen> createState() => _NavigationScreenState();
 }
 
-class _NavigationScreenState extends State<NavigationScreen> {
+class _NavigationScreenState extends State<NavigationScreen> with WidgetsBindingObserver {
   final NavigationService _navigationService = NavigationService();
+  final ConnectivityService _connectivityService = ConnectivityService();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
   
@@ -89,6 +91,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
   bool _isSearching = false;
   bool _isTrackingStarted = false;
   bool _isBackgroundTrackingEnabled = false;
+  bool _isConnected = true;
   
   List<PlaceResult> _searchResults = [];
   NavigationState? _currentNavigation;
@@ -108,9 +111,11 @@ class _NavigationScreenState extends State<NavigationScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _requestPermissions();
     _setupNavigationCallbacks();
     _initializeBackgroundService();
+    _initializeConnectivity();
     _updateBatteryLevel(); // Get initial battery level
   }
 
@@ -554,6 +559,14 @@ Future<void> _selectPlace(PlaceResult place) async {
                                     fontSize: 7,
                                   ),
                                 ),
+                                Text(
+                                  _isConnected ? '🌐 Online' : '🚫 Offline',
+                                  style: TextStyle(
+                                    color: _isConnected ? Colors.white : Colors.red[300],
+                                    fontWeight: FontWeight.w400,
+                                    fontSize: 7,
+                                  ),
+                                ),
                               ],
                             ),
                           ],
@@ -897,6 +910,50 @@ Future<void> _selectPlace(PlaceResult place) async {
     }
   }
 
+  Future<void> _initializeConnectivity() async {
+    await _connectivityService.initialize();
+    
+    // Set initial connectivity state
+    _isConnected = await _connectivityService.checkConnectivity();
+    
+    // Listen to connectivity changes
+    _connectivityService.onConnectivityChanged = (bool isConnected) {
+      setState(() {
+        _isConnected = isConnected;
+      });
+      
+      if (!isConnected) {
+        _showSnackBar('🚫 No internet connection - Tracking will resume when connected', Colors.red);
+      } else {
+        _showSnackBar('✅ Internet connection restored', Colors.green);
+      }
+    };
+    
+    print('🌐 Connectivity service initialized. Connected: $_isConnected');
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+        // App is in background or paused
+        _connectivityService.setAppState(isInBackground: true);
+        break;
+      case AppLifecycleState.resumed:
+        // App is in foreground
+        _connectivityService.setAppState(isInBackground: false);
+        break;
+      case AppLifecycleState.hidden:
+        // App is hidden but still running
+        _connectivityService.setAppState(isInBackground: true);
+        break;
+    }
+  }
+
   // Get next sequential timestamp (5 seconds apart)
   DateTime _getNextSequentialTimestamp() {
     if (_isRetryingFailed && _failedUpdates.isNotEmpty) {
@@ -1096,6 +1153,13 @@ Future<void> _selectPlace(PlaceResult place) async {
         print('📤 Sequential Timestamp: $timestampString');
         print('📤 Full payload: ${json.encode(payload)}');
         
+        // Check internet connectivity before making API call
+        if (!_isConnected) {
+          print('❌ No internet connection - adding to failed updates cache');
+          _addFailedUpdate(payload);
+          return;
+        }
+        
         // Make API call
         final response = await http.post(
           Uri.parse('http://115.242.59.130:9000/api/Common/CommonAPI'),
@@ -1131,6 +1195,9 @@ Future<void> _selectPlace(PlaceResult place) async {
 
   @override
   void dispose() async {
+    // Remove observer
+    WidgetsBinding.instance.removeObserver(this);
+    
     // Stop background services
     await FlutterForegroundTask.stopService();
     await WakelockPlus.disable();
@@ -1142,6 +1209,9 @@ Future<void> _selectPlace(PlaceResult place) async {
     // Dispose controllers
     _searchController.dispose();
     _searchFocus.dispose();
+    
+    // Dispose connectivity service
+    _connectivityService.dispose();
     
     super.dispose();
   }
