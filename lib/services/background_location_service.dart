@@ -3,11 +3,14 @@ import 'dart:convert';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:battery_plus/battery_plus.dart';
 
 class BackgroundLocationService extends TaskHandler {
   static const String _apiUrl = 'http://115.242.59.130:9000/api/Common/CommonAPI';
   static String _vehicleId = 'ALP4';
   static int _updateCounter = 0;
+  
+  // Silent operation - no retry mechanism
   
   static void setVehicleId(String vehicleId) {
     _vehicleId = vehicleId.isEmpty ? 'ALP4' : vehicleId;
@@ -16,6 +19,41 @@ class BackgroundLocationService extends TaskHandler {
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     print('🟢 Background location service started');
+    // Initialize location services in background
+    await _initializeBackgroundLocationServices();
+    
+    // Send initial location update after initialization
+    print('🟢 Sending initial background location update...');
+    await _sendLocationUpdate();
+  }
+  
+  static Future<void> _initializeBackgroundLocationServices() async {
+    try {
+      // Check if location services are enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        print('❌ [BACKGROUND] Location services are disabled');
+        return;
+      }
+
+      // Check location permissions
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        print('❌ [BACKGROUND] Location permissions are denied');
+        return;
+      }
+      
+      // Test location access with fresh GPS coordinates
+      await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.best,
+        timeLimit: const Duration(seconds: 10),
+        forceAndroidLocationManager: false, // Use FusedLocationProvider for better accuracy
+      );
+      
+      print('✅ [BACKGROUND] Location services initialized successfully');
+    } catch (e) {
+      print('❌ [BACKGROUND] Location services initialization failed: $e');
+    }
   }
 
   @override
@@ -48,8 +86,9 @@ class BackgroundLocationService extends TaskHandler {
 
       // Get fresh GPS coordinates using Geolocator with speed
       final Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
+        desiredAccuracy: LocationAccuracy.best,
+        timeLimit: const Duration(seconds: 15),
+        forceAndroidLocationManager: false, // Use FusedLocationProvider for better accuracy
       );
       
       // Calculate real speed from GPS (convert m/s to km/h)
@@ -69,6 +108,8 @@ class BackgroundLocationService extends TaskHandler {
           "Latitude": position.latitude,
           "Longitude": position.longitude,
           "Speed": speedKmh,
+          "CreatedAt": "${DateTime.now().toIso8601String().substring(0, 19)}Z", // Current local time in format "2025-09-03T18:54:00Z"
+          "GPSDateTime": "${DateTime.now().toIso8601String().substring(0, 19)}.000", // GPS timestamp
           "BatteryPercentage": deviceInfo['batteryPercentage'],
           "PhoneMode": deviceInfo['phoneMode'],
           "LocationType": "live",
@@ -103,22 +144,50 @@ class BackgroundLocationService extends TaskHandler {
           notificationText: '📍 Update #${_updateCounter} • Speed: ${speedKmh} km/h • ID: ${_vehicleId}',
         );
       } else {
-        print('❌ [BACKGROUND] API call failed: ${response.statusCode}');
+        // Silent error handling - no user notification
       }
     } catch (e) {
-      print('❌ [BACKGROUND] Error sending location update: $e');
+      // Silent error handling - no user notification
     }
+    
+    // Silent operation - no retry mechanism
   }
+
 
   static Future<Map<String, dynamic>> _getDeviceInfo() async {
     final DateTime now = DateTime.now();
     final random = (now.millisecondsSinceEpoch % 100);
     
-    // Simulate different device states based on time
-    final isCharging = random < 20;
-    final batteryLevel = isCharging ? 
-        (70 + (random % 30)) : 
-        (30 + (random % 60));
+    // Get real battery information with error handling
+    int batteryLevel = 0;
+    bool isCharging = false;
+    
+    try {
+      final Battery battery = Battery();
+      final int realBatteryLevel = await battery.batteryLevel;
+      final BatteryState batteryState = await battery.batteryState;
+      isCharging = batteryState == BatteryState.charging;
+      
+      // Debug battery information
+      print('🔋 [BACKGROUND] Real Battery Level: $realBatteryLevel%');
+      print('🔋 [BACKGROUND] Battery State: $batteryState');
+      print('🔋 [BACKGROUND] Is Charging: $isCharging');
+      
+      // Use real battery level if valid (0-100), otherwise fallback
+      if (realBatteryLevel >= 0 && realBatteryLevel <= 100) {
+        batteryLevel = realBatteryLevel;
+        print('🔋 [BACKGROUND] Using REAL battery level: $batteryLevel%');
+      } else {
+        batteryLevel = 30 + (random % 60); // Fallback
+        print('🔋 [BACKGROUND] Using FALLBACK battery level: $batteryLevel%');
+      }
+    } catch (e) {
+      print('🔋 [BACKGROUND] Battery API error: $e');
+      batteryLevel = 30 + (random % 60); // Fallback on error
+      print('🔋 [BACKGROUND] Using FALLBACK battery level due to error: $batteryLevel%');
+    }
+    
+    print('🔋 [BACKGROUND] Final Battery Level Used: $batteryLevel%');
     
     final phoneMode = batteryLevel < 50 ? "BatterySaver" : 
                      batteryLevel > 80 ? "Normal" : "Optimized";

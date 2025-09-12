@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.ola_maps_flutter_app"
+    namespace = "com.mumbaifirebrigade.casemonitoring"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 
@@ -21,7 +21,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.ola_maps_flutter_app"
+        applicationId = "com.mfb.field"
         minSdk = 24  // Changed to 21 (required for Ola Navigation SDK)
         targetSdk = 35
         versionCode = flutter.versionCode
@@ -31,9 +31,18 @@ android {
         multiDexEnabled = true
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = "upload"
+            keyPassword = "android"
+            storeFile = file("../../upload-keystore.jks")
+            storePassword = "android"
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             isShrinkResources = false
             isDebuggable = false

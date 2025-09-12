@@ -1,4 +1,4 @@
-package com.example.ola_maps_flutter_app
+package com.mfb.field
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine

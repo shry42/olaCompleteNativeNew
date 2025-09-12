@@ -1,4 +1,4 @@
-package com.example.ola_maps_flutter_app
+package com.mfb.field
 
 import java.io.Serializable
 import android.content.Context
@@ -85,56 +85,219 @@ class NavigationView(
         apiKey = creationParams?.get("apiKey") as? String
         
         if (apiKey != null) {
-            initializeMap(apiKey!!)
+            println("🔑 API Key received: ${apiKey!!.take(10)}...")
+            // Test API key with a simple request
+            testApiKey(apiKey!!)
+            
+            // Add a small delay before initializing to ensure context is ready
+            mainHandler.postDelayed({
+                initializeMap(apiKey!!)
+            }, 500)
         } else {
+            println("❌ No API key provided")
             methodChannel.invokeMethod("onMapError", "API key not provided")
         }
+    }
+    
+    private fun testApiKey(apiKey: String) {
+        // Test the API key with a simple geocoding request
+        val testUrl = "https://api.olamaps.io/geocoding/v1/geocode?address=Mumbai&api_key=$apiKey"
+        val request = Request.Builder().url(testUrl).build()
+        
+        httpClient.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                println("⚠️ API key test failed (network): ${e.message}")
+            }
+            
+            override fun onResponse(call: Call, response: Response) {
+                val responseBody = response.body?.string()
+                if (response.isSuccessful) {
+                    println("✅ API key test successful - Ola Maps API is accessible")
+                } else {
+                    println("❌ API key test failed - HTTP ${response.code}: $responseBody")
+                }
+            }
+        })
     }
 
     private fun initializeMap(apiKey: String) {
         try {
+            println("🗺️ Initializing Ola Maps with API key: ${apiKey.take(10)}...")
+            
             // Use basic Ola Maps SDK initialization
             mapView.getMap(
                 apiKey = apiKey,
                 olaMapCallback = this
             )
+            
+            println("✅ Map initialization request sent successfully")
+            
+            // Add a delayed tile loading trigger
+            mainHandler.postDelayed({
+                forceMapTileLoading()
+            }, 5000) // 5 seconds after initialization
+            
         } catch (e: Exception) {
             e.printStackTrace()
+            println("❌ Map initialization failed: ${e.message}")
             methodChannel.invokeMethod("onMapError", "Failed to initialize map: ${e.message}")
+        }
+    }
+    
+    private fun forceMapTileLoading() {
+        olaMap?.let { map ->
+            try {
+                println("🔄 Forcing map tile loading...")
+                
+                // Get current location or use Mumbai as fallback
+                val currentLoc = map.getCurrentLocation()
+                val targetLocation = if (currentLoc != null) {
+                    currentLoc
+                } else {
+                    OlaLatLng(19.0760, 72.8777) // Mumbai coordinates
+                }
+                
+                // Small camera movement to trigger tile loading
+                val currentZoom = 15.0
+                map.moveCameraToLatLong(targetLocation, currentZoom, 500)
+                
+                // After a short delay, move slightly to force tile refresh
+                mainHandler.postDelayed({
+                    try {
+                        val slightlyOffset = OlaLatLng(
+                            targetLocation.latitude + 0.001, // Small offset
+                            targetLocation.longitude + 0.001
+                        )
+                        map.moveCameraToLatLong(slightlyOffset, currentZoom, 300)
+                        
+                        // Move back to original position
+                        mainHandler.postDelayed({
+                            map.moveCameraToLatLong(targetLocation, currentZoom, 300)
+                            println("✅ Map tile loading forced")
+                        }, 500)
+                        
+                    } catch (e: Exception) {
+                        println("⚠️ Error in tile loading force: ${e.message}")
+                    }
+                }, 1000)
+                
+            } catch (e: Exception) {
+                println("❌ Error forcing map tile loading: ${e.message}")
+            }
         }
     }
 
     override fun onMapReady(olaMap: OlaMap) {
+        println("🎉 Ola Maps SDK onMapReady called!")
         this.olaMap = olaMap
         
         try {
-            // Show current location
-            olaMap.showCurrentLocation()
+            println("🗺️ Setting up map features...")
             
-            // Start location tracking
-            startLocationTracking()
-            
-            // Move camera to current location after a delay
+            // CRITICAL: Wait for map to be fully ready before setting up features
             mainHandler.postDelayed({
                 try {
-                    val currentLoc = olaMap.getCurrentLocation()
-                    if (currentLoc != null) {
-                        olaMap.moveCameraToLatLong(currentLoc, 15.0, 1000)
+                    // Enable current location display with error handling
+                    try {
+                        olaMap.showCurrentLocation()
+                        println("✅ Current location display enabled")
+                    } catch (e: Exception) {
+                        println("⚠️ Could not enable current location display: ${e.message}")
                     }
+                    
+                    // Set map type to normal (ensure tiles are visible)
+                    try {
+                        // Try to set map type if available
+                        val mapClass = olaMap.javaClass
+                        val setMapTypeMethod = mapClass.getMethod("setMapType", Int::class.java)
+                        setMapTypeMethod.invoke(olaMap, 1) // 1 = Normal map type
+                        println("✅ Map type set to normal")
+                    } catch (e: Exception) {
+                        println("⚠️ Could not set map type: ${e.message}")
+                    }
+                    
+                    // Force map to refresh tiles
+                    try {
+                        val mapClass = olaMap.javaClass
+                        val refreshMethod = mapClass.getMethod("refresh")
+                        refreshMethod.invoke(olaMap)
+                        println("✅ Map refresh called")
+                    } catch (e: Exception) {
+                        println("⚠️ Could not refresh map: ${e.message}")
+                    }
+                    
+                    // Start location tracking
+                    startLocationTracking()
+                    println("✅ Location tracking started")
+                    
+                    // Move camera to current location or fallback
+                    mainHandler.postDelayed({
+                        try {
+                            // Check if we have a current location from location tracking
+                            if (currentLocation != null) {
+                                println("📍 Moving camera to tracked location: ${currentLocation!!.latitude}, ${currentLocation!!.longitude}")
+                                olaMap.moveCameraToLatLong(
+                                    OlaLatLng(currentLocation!!.latitude, currentLocation!!.longitude), 
+                                    16.0, 
+                                    1000
+                                )
+                            } else {
+                                // Try to get current location from map
+                                val mapCurrentLoc = olaMap.getCurrentLocation()
+                                if (mapCurrentLoc != null) {
+                                    println("📍 Moving camera to map current location: ${mapCurrentLoc.latitude}, ${mapCurrentLoc.longitude}")
+                                    olaMap.moveCameraToLatLong(mapCurrentLoc, 16.0, 1000)
+                                } else {
+                                    // Fallback to Mumbai coordinates
+                                    println("📍 No current location available, using Mumbai default location")
+                                    val mumbaiLocation = OlaLatLng(19.0760, 72.8777) // Mumbai coordinates
+                                    olaMap.moveCameraToLatLong(mumbaiLocation, 12.0, 1000)
+                                    
+                                    // Show message to user about location
+                                    methodChannel.invokeMethod("onLocationError", "Unable to get current location, showing default location")
+                                }
+                            }
+                            
+                            // Force another refresh after camera movement
+                            mainHandler.postDelayed({
+                                try {
+                                    val mapClass = olaMap.javaClass
+                                    val refreshMethod = mapClass.getMethod("refresh")
+                                    refreshMethod.invoke(olaMap)
+                                    println("✅ Map refresh after camera movement")
+                                } catch (e: Exception) {
+                                    println("⚠️ Could not refresh map after camera: ${e.message}")
+                                }
+                            }, 1000)
+                            
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            println("❌ Error moving camera: ${e.message}")
+                        }
+                    }, 3000) // Increased delay to 3 seconds
+                    
+                    // Notify Flutter that map is ready (with delay to ensure tiles are loaded)
+                    mainHandler.postDelayed({
+                        methodChannel.invokeMethod("onMapReady", null)
+                        println("✅ Map ready callback sent to Flutter")
+                    }, 2000) // Delay notification to ensure tiles are loaded
+                    
                 } catch (e: Exception) {
                     e.printStackTrace()
+                    println("❌ Error in delayed onMapReady setup: ${e.message}")
+                    methodChannel.invokeMethod("onMapError", "Failed to setup map: ${e.message}")
                 }
-            }, 2000)
-            
-            methodChannel.invokeMethod("onMapReady", null)
+            }, 1000) // Initial delay to let map fully initialize
             
         } catch (e: Exception) {
             e.printStackTrace()
+            println("❌ Error in onMapReady: ${e.message}")
             methodChannel.invokeMethod("onMapError", "Failed to setup map: ${e.message}")
         }
     }
 
     override fun onMapError(error: String) {
+        println("❌ Ola Maps SDK Error: $error")
         methodChannel.invokeMethod("onMapError", error)
     }
 
@@ -144,37 +307,159 @@ class NavigationView(
     
     private fun startLocationTracking() {
         try {
+            println("📍 Starting location tracking...")
+            
             if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                locationManager?.requestLocationUpdates(
-                    LocationManager.GPS_PROVIDER,
-                    1000, // 1 second
-                    1.0f,  // 1 meter
-                    this
-                )
                 
-                locationManager?.requestLocationUpdates(
-                    LocationManager.NETWORK_PROVIDER,
-                    1000,
-                    1.0f,
-                    this
-                )
+                // Check if location services are enabled
+                val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+                
+                println("📍 GPS Enabled: $isGpsEnabled")
+                println("📍 Network Location Enabled: $isNetworkEnabled")
+                
+                if (!isGpsEnabled && !isNetworkEnabled) {
+                    println("⚠️ No location providers enabled")
+                    // Send message to Flutter about location services
+                    methodChannel.invokeMethod("onLocationError", "Location services are disabled")
+                    return
+                }
+                
+                // Try GPS provider first
+                if (isGpsEnabled) {
+                    try {
+                        locationManager.requestLocationUpdates(
+                            LocationManager.GPS_PROVIDER,
+                            2000, // 2 seconds
+                            5.0f,  // 5 meters
+                            this
+                        )
+                        println("✅ GPS location updates requested")
+                    } catch (e: Exception) {
+                        println("❌ GPS location updates failed: ${e.message}")
+                    }
+                }
+                
+                // Also try network provider as fallback
+                if (isNetworkEnabled) {
+                    try {
+                        locationManager.requestLocationUpdates(
+                            LocationManager.NETWORK_PROVIDER,
+                            5000, // 5 seconds
+                            10.0f,  // 10 meters
+                            this
+                        )
+                        println("✅ Network location updates requested")
+                    } catch (e: Exception) {
+                        println("❌ Network location updates failed: ${e.message}")
+                    }
+                }
+                
+                // Get last known location immediately
+                getLastKnownLocation()
+                
+            } else {
+                println("❌ Location permission not granted")
+                methodChannel.invokeMethod("onLocationError", "Location permission not granted")
             }
         } catch (e: Exception) {
+            println("❌ Error starting location tracking: ${e.message}")
             e.printStackTrace()
         }
     }
     
+    private fun getLastKnownLocation() {
+        try {
+            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                
+                // Try to get last known location from GPS first
+                val gpsLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                val networkLocation = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                
+                val bestLocation = when {
+                    gpsLocation != null && networkLocation != null -> {
+                        if (gpsLocation.time > networkLocation.time) gpsLocation else networkLocation
+                    }
+                    gpsLocation != null -> gpsLocation
+                    networkLocation != null -> networkLocation
+                    else -> null
+                }
+                
+                if (bestLocation != null) {
+                    println("📍 Found last known location: ${bestLocation.latitude}, ${bestLocation.longitude}")
+                    println("📍 Location age: ${(System.currentTimeMillis() - bestLocation.time) / 1000} seconds")
+                    
+                    // Use the location if it's not too old (within 5 minutes)
+                    if ((System.currentTimeMillis() - bestLocation.time) < 300000) {
+                        currentLocation = bestLocation
+                        updateMapLocation(bestLocation)
+                    } else {
+                        println("⚠️ Last known location is too old, waiting for fresh location")
+                    }
+                } else {
+                    println("⚠️ No last known location available")
+                }
+            }
+        } catch (e: Exception) {
+            println("❌ Error getting last known location: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+    
+    private fun updateMapLocation(location: Location) {
+        try {
+            olaMap?.let { map ->
+                val olaLatLng = OlaLatLng(location.latitude, location.longitude)
+                
+                // Move camera to current location
+                map.moveCameraToLatLong(olaLatLng, 16.0, 1000)
+                println("📍 Updated map location to: ${location.latitude}, ${location.longitude}")
+                
+                // Try to show current location on map
+                try {
+                    map.showCurrentLocation()
+                    println("✅ Current location dot shown on map")
+                } catch (e: Exception) {
+                    println("⚠️ Could not show current location dot: ${e.message}")
+                }
+            }
+        } catch (e: Exception) {
+            println("❌ Error updating map location: ${e.message}")
+        }
+    }
+    
     override fun onLocationChanged(location: Location) {
+        println("📍 Location changed: ${location.latitude}, ${location.longitude}")
+        println("📍 Location provider: ${location.provider}")
+        println("📍 Location accuracy: ${location.accuracy} meters")
+        
         currentLocation = location
+        
+        // Update map with new location
+        updateMapLocation(location)
         
         if (isNavigating && destinationLocation != null) {
             updateNavigationProgress(location)
         }
     }
 
-    override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
-    override fun onProviderEnabled(provider: String) {}
-    override fun onProviderDisabled(provider: String) {}
+    override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
+        println("📍 Location provider status changed: $provider -> $status")
+    }
+    
+    override fun onProviderEnabled(provider: String) {
+        println("✅ Location provider enabled: $provider")
+        // Try to get location again when provider is enabled
+        getLastKnownLocation()
+    }
+    
+    override fun onProviderDisabled(provider: String) {
+        println("❌ Location provider disabled: $provider")
+        // Notify Flutter about location service being disabled
+        methodChannel.invokeMethod("onLocationError", "Location provider disabled: $provider")
+    }
 
 
 fun clearAllRoutes() {
@@ -1279,7 +1564,160 @@ fun stopNavigation() {
     }
 
     override fun getView(): View {
+        println("📱 getView() called - returning mapView")
+        
+        // Add a delayed check to ensure map is properly initialized
+        mainHandler.postDelayed({
+            checkMapInitialization()
+        }, 2000)
+        
         return mapView
+    }
+    
+    private fun checkMapInitialization() {
+        olaMap?.let { map ->
+            try {
+                println("🔍 Checking map initialization status...")
+                
+                // Try to get current location to test if map is responsive
+                val currentLoc = map.getCurrentLocation()
+                if (currentLoc != null) {
+                    println("✅ Map is responsive - current location available")
+                } else {
+                    println("⚠️ Map is not responsive - no current location")
+                    // Try to force initialization
+                    forceMapInitialization()
+                }
+                
+                // Check if map view is properly attached
+                if (mapView.parent != null) {
+                    println("✅ Map view is properly attached to parent")
+                } else {
+                    println("⚠️ Map view is not attached to parent")
+                }
+                
+            } catch (e: Exception) {
+                println("❌ Error checking map initialization: ${e.message}")
+                forceMapInitialization()
+            }
+        } ?: run {
+            println("❌ Map is null - initialization may have failed")
+        }
+    }
+    
+    private fun forceMapInitialization() {
+        try {
+            println("🔄 Forcing map initialization...")
+            
+            // Try to refresh the map
+            olaMap?.let { map ->
+                try {
+                    val mapClass = map.javaClass
+                    val refreshMethod = mapClass.getMethod("refresh")
+                    refreshMethod.invoke(map)
+                    println("✅ Map refresh called")
+                } catch (e: Exception) {
+                    println("⚠️ Could not refresh map: ${e.message}")
+                }
+            }
+            
+            // Force tile loading
+            forceMapTileLoading()
+            
+            // If map is still not working, try to recreate it
+            mainHandler.postDelayed({
+                if (olaMap == null) {
+                    println("🔄 Attempting to recreate map...")
+                    recreateMap()
+                }
+            }, 3000)
+            
+        } catch (e: Exception) {
+            println("❌ Error forcing map initialization: ${e.message}")
+        }
+    }
+    
+    private fun recreateMap() {
+        try {
+            println("🔄 Recreating map view...")
+            
+            // Clear current map
+            olaMap = null
+            
+            // Recreate map view
+            val newMapView = OlaMapView(context)
+            
+            // Reinitialize with API key
+            apiKey?.let { key ->
+                newMapView.getMap(
+                    apiKey = key,
+                    olaMapCallback = this
+                )
+                println("✅ Map recreated successfully")
+            }
+            
+        } catch (e: Exception) {
+            println("❌ Error recreating map: ${e.message}")
+        }
+    }
+    
+    // Add a method to handle map recreation from Flutter
+    fun recreateMapFromFlutter() {
+        recreateMap()
+    }
+    
+    // Add a method to check if map is properly initialized
+    fun isMapReady(): Boolean {
+        return olaMap != null
+    }
+    
+    // Add a method to force map refresh
+    fun forceMapRefresh() {
+        olaMap?.let { map ->
+            try {
+                val mapClass = map.javaClass
+                val refreshMethod = mapClass.getMethod("refresh")
+                refreshMethod.invoke(map)
+                println("✅ Map refresh forced")
+            } catch (e: Exception) {
+                println("⚠️ Could not force refresh map: ${e.message}")
+            }
+        }
+    }
+    
+    // Add a method to get map status for debugging
+    fun getMapStatus(): Map<String, Any> {
+        return mapOf(
+            "isMapReady" to (olaMap != null),
+            "hasCurrentLocation" to (olaMap?.getCurrentLocation() != null),
+            "isViewAttached" to (mapView.parent != null),
+            "apiKeyPresent" to (apiKey != null)
+        )
+    }
+    
+    // Add a method to handle map recreation from Flutter
+    fun handleMapRecreation() {
+        try {
+            println("🔄 Handling map recreation from Flutter...")
+            
+            // Clear current map
+            olaMap = null
+            
+            // Recreate map view
+            val newMapView = OlaMapView(context)
+            
+            // Reinitialize with API key
+            apiKey?.let { key ->
+                newMapView.getMap(
+                    apiKey = key,
+                    olaMapCallback = this
+                )
+                println("✅ Map recreated from Flutter successfully")
+            }
+            
+        } catch (e: Exception) {
+            println("❌ Error recreating map from Flutter: ${e.message}")
+        }
     }
 
     override fun dispose() {

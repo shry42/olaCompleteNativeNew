@@ -96,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen>
     await Future.delayed(const Duration(milliseconds: 800));
 
     // Direct navigation without validation
-    _showSnackBar('🔥 Welcome to Mumbai Fire Brigade!', Colors.green);
+    _showSnackBar('🔥 Welcome to MFB Field!', Colors.green);
     
     // Navigate to MainScreen directly
     await Future.delayed(const Duration(milliseconds: 500));
@@ -219,25 +219,31 @@ class _LoginScreenState extends State<LoginScreen>
   Widget _buildHeader() {
     return Column(
       children: [
-        // Mumbai Fire Brigade Logo
+        // MFB Field Logo
         Container(
-          width: 80,
-          height: 80,
+          width: 100,
+          height: 100,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withOpacity(0.15),
             shape: BoxShape.circle,
             border: Border.all(
-              color: Colors.white.withOpacity(0.3),
-              width: 2,
+              color: Colors.white.withOpacity(0.4),
+              width: 3,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(6.0),
+          child: ClipOval(
             child: Image.asset(
-              'assets/images/mumbai_fire_brigade_official.png',
-              width: 68,
-              height: 68,
-              fit: BoxFit.contain,
+              'assets/images/mfb.jpg',
+              width: 100,
+              height: 100,
+              fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) => _buildFallbackLogo(),
             ),
           ),
@@ -289,7 +295,7 @@ class _LoginScreenState extends State<LoginScreen>
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Text(
-              'Case Monitoring System',
+              'MFB Field',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.white,
@@ -498,7 +504,7 @@ class _LoginScreenState extends State<LoginScreen>
           ),
           const SizedBox(height: 6),
           Text(
-            'Click LOGIN to access the\nMumbai Fire Brigade system\n(Vehicle ID defaults to ALP4 if not provided)',
+            'Click LOGIN to access the\nMFB Field system\n(Vehicle ID defaults to ALP4 if not provided)',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 10,
@@ -515,7 +521,7 @@ class _LoginScreenState extends State<LoginScreen>
     return Column(
       children: [
         Text(
-          'Emergency Response • Case Monitoring • Safety',
+          'Emergency Response • MFB Field • Safety',
           style: TextStyle(
             color: Colors.white.withOpacity(0.8),
             fontSize: 12,
@@ -567,7 +573,7 @@ class _LoginScreenState extends State<LoginScreen>
         const SizedBox(height: 12),
         
         Text(
-          '© 2024 Mumbai Fire Brigade',
+          '© 2024 MFB Field',
           style: TextStyle(
             color: Colors.white.withOpacity(0.6),
             fontSize: 10,

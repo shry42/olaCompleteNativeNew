@@ -160,7 +160,7 @@ class ProfileScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               _buildInfoRow('Employee ID', 'MFB-EMP-2024-001'),
-              _buildInfoRow('Department', 'Mumbai Fire Brigade'),
+              _buildInfoRow('Department', 'MFB Field'),
               _buildInfoRow('Station', 'Fire Station 12, Andheri'),
               _buildInfoRow('Designation', 'Fire Inspector'),
               _buildInfoRow('Join Date', '15 Jan 2020'),
@@ -331,7 +331,7 @@ class ProfileScreen extends StatelessWidget {
       },
       {
         'title': 'About App',
-        'subtitle': 'Version 1.0.0 • Mumbai Fire Brigade',
+        'subtitle': 'Version 1.0.0 • MFB Field',
         'icon': Icons.info,
         'action': () => _showAbout(context),
       },
@@ -511,7 +511,7 @@ class ProfileScreen extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('About'),
-        content: const Text('Mumbai Fire Brigade\nCase Monitoring System\n\nVersion: 1.0.0\nBuild: 2024.001\n\nDeveloped for Mumbai Fire Brigade officers to efficiently manage and monitor fire safety cases.'),
+        content: const Text('MFB Field\nEmergency Response System\n\nVersion: 1.0.0\nBuild: 2024.001\n\nDeveloped for MFB Field officers to efficiently manage and monitor emergency response operations.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),

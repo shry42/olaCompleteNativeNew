@@ -1,4 +1,4 @@
-package com.example.ola_maps_flutter_app
+package com.mfb.field
 
 import android.app.Activity
 import io.flutter.plugin.common.MethodCall

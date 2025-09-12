@@ -1,5 +1,5 @@
-name: ola_maps_flutter_app
-description: "A new Flutter project."
+name: mfb_field
+description: "MFB Field - Emergency Response Application"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -39,6 +39,7 @@ dependencies:
   http: ^1.2.1
   flutter_foreground_task: ^8.10.0
   wakelock_plus: ^1.2.8
+  battery_plus: ^5.0.2
 
 dev_dependencies:
   flutter_test:

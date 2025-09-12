@@ -1,5 +1,3 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class NavigationService {
@@ -8,6 +6,7 @@ class NavigationService {
   // Callbacks  
   Function()? onMapReady;
   Function(String error)? onMapError;
+  Function(String error)? onLocationError;
   Function(Map<String, dynamic> routeData)? onRouteCalculated;
   Function(Map<String, dynamic> progress)? onRouteProgress;
   Function()? onNavigationStarted;
@@ -25,6 +24,9 @@ class NavigationService {
         break;
       case 'onMapError':
         onMapError?.call(call.arguments as String);
+        break;
+      case 'onLocationError':
+        onLocationError?.call(call.arguments as String);
         break;
       case 'onRouteCalculated':
         onRouteCalculated?.call(Map<String, dynamic>.from(call.arguments));

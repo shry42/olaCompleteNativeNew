@@ -13,10 +13,10 @@ import 'screens/login_screen.dart'; // Import login screen
 
 void main() {
   // Initialize foreground task
-  FlutterForegroundTask.init(
+    FlutterForegroundTask.init(
     androidNotificationOptions: AndroidNotificationOptions(
-      channelId: 'mumbai_fire_brigade_tracking',
-      channelName: 'Mumbai Fire Brigade Location Tracking',
+      channelId: 'mfb_field_tracking',
+      channelName: 'MFB Field Location Tracking',
       channelDescription: 'This notification keeps the location tracking active for emergency response.',
       channelImportance: NotificationChannelImportance.LOW,
       priority: NotificationPriority.LOW,
@@ -42,7 +42,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Mumbai Fire Brigade Case Monitoring',
+      title: 'MFB Field',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFE53E3E)),
         useMaterial3: true,
@@ -775,7 +775,7 @@ Future<void> _selectPlace(PlaceResult place) async {
       // Start background foreground service for continuous tracking
       if (_isBackgroundTrackingEnabled) {
         await FlutterForegroundTask.startService(
-          notificationTitle: '🚒 Mumbai Fire Brigade Tracking',
+          notificationTitle: '🚒 MFB Field Tracking',
           notificationText: '📍 Starting location tracking...',
           callback: () => BackgroundLocationService(),
         );
