@@ -85,6 +85,22 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _handleLogin() async {
+    // Validate required fields
+    if (_usernameController.text.trim().isEmpty) {
+      _showSnackBar('❌ Username is required', Colors.red);
+      return;
+    }
+
+    if (_vehicleIdController.text.trim().isEmpty) {
+      _showSnackBar('❌ Vehicle ID is required', Colors.red);
+      return;
+    }
+
+    if (_passwordController.text != 'Pass') {
+      _showSnackBar('❌ Invalid password. Default password is "Pass"', Colors.red);
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
@@ -92,27 +108,28 @@ class _LoginScreenState extends State<LoginScreen>
     // Add haptic feedback
     HapticFeedback.lightImpact();
 
-    // Simulate authentication delay (shorter now)
+    // Simulate authentication delay
     await Future.delayed(const Duration(milliseconds: 800));
 
-    // Direct navigation without validation
+    // Successful login
     _showSnackBar('🔥 Welcome to MFB Field!', Colors.green);
     
-    // Navigate to MainScreen directly
+    // Navigate to MainScreen with user info
     await Future.delayed(const Duration(milliseconds: 500));
     
-          if (mounted) {
-        // Get vehicle ID or use default
-        final vehicleId = _vehicleIdController.text.trim().isEmpty 
-            ? 'ALP4' 
-            : _vehicleIdController.text.trim();
-        
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => MainScreen(vehicleId: vehicleId),
+    if (mounted) {
+      final vehicleId = _vehicleIdController.text.trim();
+      final username = _usernameController.text.trim();
+      
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => MainScreen(
+            vehicleId: vehicleId,
+            username: username,
           ),
-        );
-      }
+        ),
+      );
+    }
 
     setState(() {
       _isLoading = false;

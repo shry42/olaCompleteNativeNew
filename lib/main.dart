@@ -70,8 +70,9 @@ class MyApp extends StatelessWidget {
 
 class NavigationScreen extends StatefulWidget {
   final String vehicleId;
+  final String username;
   
-  const NavigationScreen({super.key, required this.vehicleId});
+  const NavigationScreen({super.key, required this.vehicleId, required this.username});
 
   @override
   State<NavigationScreen> createState() => _NavigationScreenState();
@@ -345,16 +346,51 @@ Future<void> _selectPlace(PlaceResult place) async {
             creationParamsCodec: const StandardMessageCodec(),
           ),
           
-          // SEARCH BAR (Google Maps style)
+          // USER INFO AND SEARCH BAR
           if (!_isNavigating) 
             Positioned(
               top: MediaQuery.of(context).padding.top + 10,
               left: 16,
               right: 16,
-              child: Material(
-                elevation: 8,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
+              child: Column(
+                children: [
+                  // User Info Card
+                  Material(
+                    elevation: 6,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE53E3E),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.person,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${widget.username} • ${widget.vehicleId}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Search Bar
+                  Material(
+                    elevation: 8,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(8),
@@ -391,12 +427,14 @@ Future<void> _selectPlace(PlaceResult place) async {
                   ),
                 ),
               ),
+                ],
+              ),
             ),
 
           // START/STOP TRACKING BUTTONS
           if (!_isNavigating && !_isSearching)
             Positioned(
-              top: MediaQuery.of(context).padding.top + 80,
+              top: MediaQuery.of(context).padding.top + 120,
               right: 16,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -548,7 +586,7 @@ Future<void> _selectPlace(PlaceResult place) async {
           // SEARCH RESULTS
           if (_isSearching && _searchResults.isNotEmpty)
             Positioned(
-              top: MediaQuery.of(context).padding.top + 70,
+              top: MediaQuery.of(context).padding.top + 110,
               left: 16,
               right: 16,
               child: Material(

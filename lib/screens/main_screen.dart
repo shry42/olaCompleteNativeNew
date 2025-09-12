@@ -8,8 +8,9 @@ import 'notifications_screen.dart';
 
 class MainScreen extends StatefulWidget {
   final String vehicleId;
+  final String username;
   
-  const MainScreen({super.key, required this.vehicleId});
+  const MainScreen({super.key, required this.vehicleId, required this.username});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -26,7 +27,7 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     _checkPermissions();
     _screens = [
-      NavigationScreen(vehicleId: widget.vehicleId), // Home - Navigation/Maps
+      NavigationScreen(vehicleId: widget.vehicleId, username: widget.username), // Home - Navigation/Maps
       const ReportsScreen(),    // Reports - Case monitoring
       const EmergencyScreen(),  // Emergency - Quick actions
       const NotificationsScreen(), // Notifications - Alerts
