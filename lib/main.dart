@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:battery_plus/battery_plus.dart';
 import 'services/navigation_service.dart'; // Import your new service
 import 'services/background_location_service.dart';
 import 'screens/login_screen.dart'; // Import login screen
@@ -96,6 +97,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
   int _updateCounter = 0;
   int _secondsElapsed = 0;
   double _lastSpeed = 0.0;
+  int _batteryLevel = 100;
 
 
   @override
@@ -104,6 +106,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
     _requestPermissions();
     _setupNavigationCallbacks();
     _initializeBackgroundService();
+    _updateBatteryLevel(); // Get initial battery level
   }
 
   void _setupNavigationCallbacks() {
@@ -538,6 +541,14 @@ Future<void> _selectPlace(PlaceResult place) async {
                                     fontSize: 7,
                                   ),
                                 ),
+                                Text(
+                                  'Battery: $_batteryLevel%',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w400,
+                                    fontSize: 7,
+                                  ),
+                                ),
                               ],
                             ),
                           ],
@@ -805,6 +816,9 @@ Future<void> _selectPlace(PlaceResult place) async {
         _lastSpeed = 0.0; // Reset speed
       });
       
+      // Update battery level
+      await _updateBatteryLevel();
+      
       // Enable wake lock to prevent screen from turning off during tracking
       await WakelockPlus.enable();
       
@@ -866,16 +880,28 @@ Future<void> _selectPlace(PlaceResult place) async {
     _showSnackBar('🔴 Location tracking stopped (${_updateCounter} updates sent)', Colors.orange);
   }
   
+  Future<void> _updateBatteryLevel() async {
+    try {
+      final battery = Battery();
+      final batteryLevel = await battery.batteryLevel;
+      setState(() {
+        _batteryLevel = batteryLevel;
+      });
+    } catch (e) {
+      print('Error getting battery level: $e');
+    }
+  }
+
   Future<Map<String, dynamic>> _getDeviceInfo() async {
+    // Get real battery level
+    await _updateBatteryLevel();
+    
     // Generate realistic dynamic values
     final DateTime now = DateTime.now();
     final random = (now.millisecondsSinceEpoch % 100);
     
-    // Simulate different device states based on time
-    final isCharging = random < 20; // 20% chance device is charging
-    final batteryLevel = isCharging ? 
-        (70 + (random % 30)) : // 70-99% when charging
-        (30 + (random % 60));  // 30-89% when not charging
+    // Use real battery level
+    final batteryLevel = _batteryLevel;
     
     final phoneMode = batteryLevel < 50 ? "BatterySaver" : 
                      batteryLevel > 80 ? "Normal" : "Optimized";
@@ -911,6 +937,9 @@ Future<void> _selectPlace(PlaceResult place) async {
   
   Future<void> _sendLocationUpdate() async {
     try {
+      // Update battery level
+      await _updateBatteryLevel();
+      
       // Check if location services are enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
