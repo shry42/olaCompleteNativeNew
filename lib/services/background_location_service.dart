@@ -109,7 +109,6 @@ class BackgroundLocationService extends TaskHandler {
           "Longitude": position.longitude,
           "Speed": speedKmh,
           "CreatedAt": "${DateTime.now().toIso8601String().substring(0, 19)}Z", // Current local time in format "2025-09-03T18:54:00Z"
-          "GPSDateTime": "${DateTime.now().toIso8601String().substring(0, 19)}.000", // GPS timestamp
           "BatteryPercentage": deviceInfo['batteryPercentage'],
           "PhoneMode": deviceInfo['phoneMode'],
           "LocationType": "live",

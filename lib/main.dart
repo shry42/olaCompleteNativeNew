@@ -989,7 +989,6 @@ Future<void> _selectPlace(PlaceResult place) async {
             "Longitude": position.longitude, // Fresh GPS coordinates
             "Speed": speedKmh, // 100% Real GPS speed in km/h
             "CreatedAt": "${DateTime.now().toIso8601String().substring(0, 19)}Z", // Current real-time timestamp
-            "GPSDateTime": "${DateTime.now().toIso8601String().substring(0, 19)}.000", // GPS timestamp
             "BatteryPercentage": deviceInfo['batteryPercentage'],
             "PhoneMode": deviceInfo['phoneMode'],
             "LocationType": "live",
