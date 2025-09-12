@@ -988,6 +988,8 @@ Future<void> _selectPlace(PlaceResult place) async {
             "Latitude": position.latitude,   // Fresh GPS coordinates
             "Longitude": position.longitude, // Fresh GPS coordinates
             "Speed": speedKmh, // 100% Real GPS speed in km/h
+            "CreatedAt": "${DateTime.now().toIso8601String().substring(0, 19)}Z", // Current real-time timestamp
+            "GPSDateTime": "${DateTime.now().toIso8601String().substring(0, 19)}.000", // GPS timestamp
             "BatteryPercentage": deviceInfo['batteryPercentage'],
             "PhoneMode": deviceInfo['phoneMode'],
             "LocationType": "live",
@@ -1003,7 +1005,9 @@ Future<void> _selectPlace(PlaceResult place) async {
           }
         };
         
+        final currentTime = DateTime.now().toIso8601String().substring(0, 19);
         print('📤 Sending LIVE GPS update #${_updateCounter + 1}: Lat: ${position.latitude}, Lng: ${position.longitude}, Speed: ${speedKmh} km/h (REAL GPS)');
+        print('📤 Timestamp: $currentTime');
         print('📤 Full payload: ${json.encode(payload)}');
         
         // Make API call
