@@ -1188,8 +1188,9 @@ Future<void> _selectPlace(PlaceResult place) async {
         }
       
     } catch (e) {
-      print('❌ Error sending location update: $e');
-      _showSnackBar('⚠️ Network error', Colors.red);
+      print('');
+      // print('❌ Error sending location update: $e');
+      // _showSnackBar('⚠️ Network error', Colors.red);
     }
   }
 
