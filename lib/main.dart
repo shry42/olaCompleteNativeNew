@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -11,9 +9,18 @@ import 'package:battery_plus/battery_plus.dart';
 import 'services/navigation_service.dart'; // Import your new service
 import 'services/background_location_service.dart';
 import 'services/connectivity_service.dart';
+import 'services/device_id_service.dart';
+import 'services/data_buffer_service.dart';
+import 'services/location_monitoring_service.dart';
 import 'screens/login_screen.dart'; // Import login screen
 
-void main() {
+void main() async {
+  // Initialize Flutter binding
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize device ID service
+  await DeviceIdService.initialize();
+  
   // Initialize foreground task
     FlutterForegroundTask.init(
     androidNotificationOptions: AndroidNotificationOptions(
@@ -83,6 +90,8 @@ class NavigationScreen extends StatefulWidget {
 class _NavigationScreenState extends State<NavigationScreen> with WidgetsBindingObserver {
   final NavigationService _navigationService = NavigationService();
   final ConnectivityService _connectivityService = ConnectivityService();
+  final DataBufferService _dataBuffer = DataBufferService();
+  final LocationMonitoringService _locationMonitor = LocationMonitoringService();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
   
@@ -92,6 +101,7 @@ class _NavigationScreenState extends State<NavigationScreen> with WidgetsBinding
   bool _isTrackingStarted = false;
   bool _isBackgroundTrackingEnabled = false;
   bool _isConnected = true;
+  bool _isLocationEnabled = true;
   
   List<PlaceResult> _searchResults = [];
   NavigationState? _currentNavigation;
@@ -101,11 +111,9 @@ class _NavigationScreenState extends State<NavigationScreen> with WidgetsBinding
   int _secondsElapsed = 0;
   double _lastSpeed = 0.0;
   int _batteryLevel = 100;
-  
-  // Sequential timestamp system
-  DateTime _lastSuccessfulTimestamp = DateTime.now();
-  List<Map<String, dynamic>> _failedUpdates = [];
-  bool _isRetryingFailed = false;
+  int _bufferSize = 0;
+  bool _isSendingBufferedData = false;
+  int _locationWarningCount = 0;
 
 
   @override
@@ -116,6 +124,8 @@ class _NavigationScreenState extends State<NavigationScreen> with WidgetsBinding
     _setupNavigationCallbacks();
     _initializeBackgroundService();
     _initializeConnectivity();
+    _initializeDataBuffer();
+    _initializeLocationMonitoring();
     _updateBatteryLevel(); // Get initial battery level
   }
 
@@ -215,6 +225,10 @@ class _NavigationScreenState extends State<NavigationScreen> with WidgetsBinding
         duration: const Duration(seconds: 3),
       ),
     );
+  }
+
+  void _showLocationWarningDialog() {
+    _locationMonitor.showLocationWarningDialog(context);
   }
 
   Future<void> _searchPlaces(String query) async {
@@ -359,10 +373,82 @@ Future<void> _selectPlace(PlaceResult place) async {
             creationParamsCodec: const StandardMessageCodec(),
           ),
           
+          // LOCATION WARNING BANNER
+          if (!_isLocationEnabled)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE53E3E),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.location_off,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'CRITICAL: Location Services Disabled!',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            'MFB Field tracking requires location. Enable immediately! (Warning #$_locationWarningCount)',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () async {
+                        await _locationMonitor.openLocationSettings();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFFE53E3E),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                      child: const Text(
+                        'ENABLE',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          
           // USER INFO AND SEARCH BAR
           if (!_isNavigating) 
             Positioned(
-              top: MediaQuery.of(context).padding.top + 10,
+              top: (!_isLocationEnabled ? 80 : 0) + MediaQuery.of(context).padding.top + 10,
               left: 16,
               right: 16,
               child: Column(
@@ -447,7 +533,7 @@ Future<void> _selectPlace(PlaceResult place) async {
           // START/STOP TRACKING BUTTONS
           if (!_isNavigating && !_isSearching)
             Positioned(
-              top: MediaQuery.of(context).padding.top + 120,
+              top: (!_isLocationEnabled ? 80 : 0) + MediaQuery.of(context).padding.top + 120,
               right: 16,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -567,6 +653,40 @@ Future<void> _selectPlace(PlaceResult place) async {
                                     fontSize: 7,
                                   ),
                                 ),
+                                Text(
+                                  _isLocationEnabled ? '📍 Location ON' : '🚨 Location OFF',
+                                  style: TextStyle(
+                                    color: _isLocationEnabled ? Colors.green[300] : Colors.red[300],
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 7,
+                                  ),
+                                ),
+                                if (!_isLocationEnabled && _locationWarningCount > 0)
+                                  Text(
+                                    'Warnings: $_locationWarningCount',
+                                    style: TextStyle(
+                                      color: Colors.red[300],
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 7,
+                                    ),
+                                  ),
+                                Text(
+                                  'Buffer: $_bufferSize',
+                                  style: TextStyle(
+                                    color: _bufferSize > 0 ? Colors.orange[300] : Colors.white,
+                                    fontWeight: FontWeight.w400,
+                                    fontSize: 7,
+                                  ),
+                                ),
+                                if (_isSendingBufferedData)
+                                  Text(
+                                    'Sending...',
+                                    style: TextStyle(
+                                      color: Colors.green[300],
+                                      fontWeight: FontWeight.w400,
+                                      fontSize: 7,
+                                    ),
+                                  ),
                               ],
                             ),
                           ],
@@ -615,7 +735,7 @@ Future<void> _selectPlace(PlaceResult place) async {
           // SEARCH RESULTS
           if (_isSearching && _searchResults.isNotEmpty)
             Positioned(
-              top: MediaQuery.of(context).padding.top + 110,
+              top: (!_isLocationEnabled ? 80 : 0) + MediaQuery.of(context).padding.top + 110,
               left: 16,
               right: 16,
               child: Material(
@@ -923,13 +1043,106 @@ Future<void> _selectPlace(PlaceResult place) async {
       });
       
       if (!isConnected) {
-        _showSnackBar('🚫 No internet connection - Tracking will resume when connected', Colors.red);
+        _showSnackBar('🚫 No internet connection - Data will be buffered', Colors.red);
       } else {
-        _showSnackBar('✅ Internet connection restored', Colors.green);
+        _showSnackBar('✅ Internet connection restored - Sending buffered data', Colors.green);
       }
     };
     
     print('🌐 Connectivity service initialized. Connected: $_isConnected');
+  }
+
+  Future<void> _initializeDataBuffer() async {
+    await _dataBuffer.initialize();
+    
+    // Set up buffer monitoring callbacks
+    _dataBuffer.onBufferSizeChanged = (int bufferSize) {
+      setState(() {
+        _bufferSize = bufferSize;
+      });
+    };
+    
+    _dataBuffer.onSendingStateChanged = (bool isSending) {
+      setState(() {
+        _isSendingBufferedData = isSending;
+      });
+    };
+    
+    // Get initial buffer status
+    final bufferStatus = _dataBuffer.getBufferStatus();
+    setState(() {
+      _bufferSize = bufferStatus['bufferSize'];
+      _isSendingBufferedData = bufferStatus['isSending'];
+    });
+    
+    print('📦 Data buffer service initialized. Buffer size: $_bufferSize');
+  }
+
+  Future<void> _initializeLocationMonitoring() async {
+    await _locationMonitor.initialize();
+    
+    // Set up location monitoring callbacks
+    _locationMonitor.onLocationStatusChanged = (bool isLocationEnabled) {
+      setState(() {
+        _isLocationEnabled = isLocationEnabled;
+      });
+      
+      if (!isLocationEnabled) {
+        _showLocationWarningDialog();
+      }
+    };
+    
+    _locationMonitor.onLocationWarning = (String message) {
+      setState(() {
+        _locationWarningCount = _locationMonitor.warningCount;
+      });
+      _showSnackBar(message, Colors.red);
+    };
+    
+    // Get initial location status
+    _isLocationEnabled = await _locationMonitor.forceCheckLocation();
+    setState(() {
+      _isLocationEnabled = _isLocationEnabled;
+    });
+    
+    // Start monitoring
+    _locationMonitor.startMonitoring();
+    
+    print('🔍 Location monitoring service initialized. Location enabled: $_isLocationEnabled');
+  }
+
+  /// Restart location monitoring when app resumes
+  Future<void> _restartLocationMonitoring() async {
+    try {
+      print('🔄 [LOCATION_MONITOR] Restarting location monitoring...');
+      
+      // Stop current monitoring
+      _locationMonitor.stopMonitoring();
+      
+      // Wait a moment for cleanup
+      await Future.delayed(const Duration(milliseconds: 200));
+      
+      // Trigger immediate location check
+      await _locationMonitor.triggerImmediateCheck();
+      
+      // Get current status
+      final isLocationEnabled = _locationMonitor.isLocationEnabled;
+      setState(() {
+        _isLocationEnabled = isLocationEnabled;
+      });
+      
+      // If location is disabled, show warning immediately
+      if (!isLocationEnabled) {
+        _showLocationWarningDialog();
+      }
+      
+      // Restart monitoring with more frequent checks (1 second interval)
+      _locationMonitor.startMonitoring(checkInterval: const Duration(seconds: 1));
+      
+      print('✅ [LOCATION_MONITOR] Location monitoring restarted. Location enabled: $isLocationEnabled');
+    } catch (e) {
+      print('❌ [LOCATION_MONITOR] Error restarting location monitoring: $e');
+    }
   }
 
   @override
@@ -944,8 +1157,9 @@ Future<void> _selectPlace(PlaceResult place) async {
         _connectivityService.setAppState(isInBackground: true);
         break;
       case AppLifecycleState.resumed:
-        // App is in foreground
+        // App is in foreground - restart location monitoring
         _connectivityService.setAppState(isInBackground: false);
+        _restartLocationMonitoring();
         break;
       case AppLifecycleState.hidden:
         // App is hidden but still running
@@ -954,81 +1168,6 @@ Future<void> _selectPlace(PlaceResult place) async {
     }
   }
 
-  // Get next sequential timestamp (5 seconds apart)
-  DateTime _getNextSequentialTimestamp() {
-    if (_isRetryingFailed && _failedUpdates.isNotEmpty) {
-      // Return the timestamp of the first failed update
-      return DateTime.parse(_failedUpdates.first['timestamp']);
-    } else {
-      // Return next 5-second interval
-      return _lastSuccessfulTimestamp.add(const Duration(seconds: 5));
-    }
-  }
-
-  // Add failed update to cache
-  void _addFailedUpdate(Map<String, dynamic> payload) {
-    final timestamp = _getNextSequentialTimestamp();
-    final failedUpdate = {
-      'timestamp': timestamp.toIso8601String().substring(0, 19) + 'Z',
-      'payload': payload,
-      'retryCount': 0,
-    };
-    _failedUpdates.add(failedUpdate);
-    print('📦 Cached failed update for timestamp: ${failedUpdate['timestamp']}');
-  }
-
-  // Retry failed updates in sequence
-  Future<void> _retryFailedUpdates() async {
-    if (_failedUpdates.isEmpty || _isRetryingFailed) return;
-    
-    _isRetryingFailed = true;
-    print('🔄 Starting retry of ${_failedUpdates.length} failed updates...');
-    
-    while (_failedUpdates.isNotEmpty) {
-      final failedUpdate = _failedUpdates.first;
-      failedUpdate['retryCount'] = (failedUpdate['retryCount'] ?? 0) + 1;
-      
-      print('🔄 Retrying update #${failedUpdate['retryCount']} for timestamp: ${failedUpdate['timestamp']}');
-      
-      try {
-        final response = await http.post(
-          Uri.parse('http://115.242.59.130:9000/api/Common/CommonAPI'),
-          headers: {'Content-Type': 'application/json'},
-          body: json.encode(failedUpdate['payload']),
-        );
-        
-        if (response.statusCode == 200) {
-          print('✅ Retry successful for timestamp: ${failedUpdate['timestamp']}');
-          _failedUpdates.removeAt(0);
-          _lastSuccessfulTimestamp = DateTime.parse(failedUpdate['timestamp'].replaceAll('Z', ''));
-          _updateCounter++;
-        } else {
-          print('❌ Retry failed for timestamp: ${failedUpdate['timestamp']} (Status: ${response.statusCode})');
-          if (failedUpdate['retryCount'] >= 3) {
-            print('🚫 Max retries reached, removing from cache: ${failedUpdate['timestamp']}');
-            _failedUpdates.removeAt(0);
-          } else {
-            // Move to end of queue for later retry
-            _failedUpdates.add(_failedUpdates.removeAt(0));
-          }
-        }
-      } catch (e) {
-        print('❌ Retry error for timestamp: ${failedUpdate['timestamp']}: $e');
-        if (failedUpdate['retryCount'] >= 3) {
-          print('🚫 Max retries reached, removing from cache: ${failedUpdate['timestamp']}');
-          _failedUpdates.removeAt(0);
-        } else {
-          _failedUpdates.add(_failedUpdates.removeAt(0));
-        }
-      }
-      
-      // Wait 2 seconds between retries
-      await Future.delayed(const Duration(seconds: 2));
-    }
-    
-    _isRetryingFailed = false;
-    print('✅ Finished retrying failed updates');
-  }
 
   Future<Map<String, dynamic>> _getDeviceInfo() async {
     // Get real battery level
@@ -1075,9 +1214,6 @@ Future<void> _selectPlace(PlaceResult place) async {
   
   Future<void> _sendLocationUpdate() async {
     try {
-      // First, retry any failed updates
-      await _retryFailedUpdates();
-      
       // Update battery level
       await _updateBatteryLevel();
       
@@ -1119,8 +1255,11 @@ Future<void> _selectPlace(PlaceResult place) async {
       // Generate dynamic values for more realistic data
       final deviceInfo = await _getDeviceInfo();
       
-      // Get next sequential timestamp (5 seconds apart)
-      final nextTimestamp = _getNextSequentialTimestamp();
+      // Get unique device ID
+      final deviceId = await DeviceIdService.getDeviceId();
+      
+      // Get next sequential timestamp (5 seconds apart) from data buffer
+      final nextTimestamp = _dataBuffer.getNextSequentialTimestamp();
       final timestampString = nextTimestamp.toIso8601String().substring(0, 19) + 'Z';
         
       // Prepare API payload with all parameters from API response structure
@@ -1130,6 +1269,7 @@ Future<void> _selectPlace(PlaceResult place) async {
         "parameters": {
           "mode": 1,
           "UnitId": deviceInfo['unitId'],
+          "DeviceId": deviceId, // Unique device identifier
           "Latitude": position.latitude,   // Fresh GPS coordinates
           "Longitude": position.longitude, // Fresh GPS coordinates
           "Speed": speedKmh, // 100% Real GPS speed in km/h
@@ -1149,48 +1289,28 @@ Future<void> _selectPlace(PlaceResult place) async {
           }
         };
         
-        print('📤 Sending SEQUENTIAL GPS update: Lat: ${position.latitude}, Lng: ${position.longitude}, Speed: ${speedKmh} km/h');
+        print('📤 Preparing SEQUENTIAL GPS update: Lat: ${position.latitude}, Lng: ${position.longitude}, Speed: ${speedKmh} km/h');
         print('📤 Sequential Timestamp: $timestampString');
-        print('📤 Full payload: ${json.encode(payload)}');
         
-        // Check internet connectivity before making API call
-        if (!_isConnected) {
-          print('❌ No internet connection - adding to failed updates cache');
-          _addFailedUpdate(payload);
-          return;
-        }
+        // Use data buffer service to handle sending (with offline buffering)
+        await _dataBuffer.sendLocationData(payload);
         
-        // Make API call
-        final response = await http.post(
-          Uri.parse('http://115.242.59.130:9000/api/Common/CommonAPI'),
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: json.encode(payload),
-        );
+        // Update counter and UI
+        _updateCounter++;
+        setState(() {
+          _lastSpeed = speedKmh.toDouble();
+        });
         
-        if (response.statusCode == 200) {
-          _updateCounter++;
-          _lastSuccessfulTimestamp = nextTimestamp;
-          setState(() {
-            _lastSpeed = speedKmh.toDouble();
-          });
-          print('✅ Sequential update #$_updateCounter sent successfully for timestamp: $timestampString');
-          
-          // Show success message less frequently to avoid spam
-          if (_isTrackingStarted && _updateCounter % 5 == 0) { // Show every 5th update
-            _showSnackBar('📍 ${_updateCounter} sequential updates sent', Colors.blue);
-          }
-        } else {
-          print('❌ Failed to send sequential update for timestamp: $timestampString (Status: ${response.statusCode})');
-          _addFailedUpdate(payload);
-          _showSnackBar('⚠️ Failed to send update, will retry: $timestampString', Colors.orange);
+        print('✅ Sequential update #$_updateCounter prepared for timestamp: $timestampString');
+        
+        // Show success message less frequently to avoid spam
+        if (_isTrackingStarted && _updateCounter % 5 == 0) { // Show every 5th update
+          _showSnackBar('📍 ${_updateCounter} sequential updates prepared', Colors.blue);
         }
       
     } catch (e) {
-      print('');
-      // print('❌ Error sending location update: $e');
-      // _showSnackBar('⚠️ Network error', Colors.red);
+      print('❌ Error in location update: $e');
+      // Silent error handling
     }
   }
 
@@ -1211,8 +1331,9 @@ Future<void> _selectPlace(PlaceResult place) async {
     _searchController.dispose();
     _searchFocus.dispose();
     
-    // Dispose connectivity service
+    // Dispose services
     _connectivityService.dispose();
+    _locationMonitor.dispose();
     
     super.dispose();
   }

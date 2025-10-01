@@ -1,106 +1,42 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'package:battery_plus/battery_plus.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'device_id_service.dart';
+import 'data_buffer_service.dart';
+import 'location_monitoring_service.dart';
 
 class BackgroundLocationService extends TaskHandler {
-  static const String _apiUrl = 'http://115.242.59.130:9000/api/Common/CommonAPI';
   static String _vehicleId = 'ALP4';
   static int _updateCounter = 0;
   
-  // Sequential timestamp system
-  static DateTime _lastSuccessfulTimestamp = DateTime.now();
-  static List<Map<String, dynamic>> _failedUpdates = [];
-  static bool _isRetryingFailed = false;
-  
-  // Silent operation - no retry mechanism
+  // Data buffer service for offline handling
+  static final DataBufferService _dataBuffer = DataBufferService();
+  static final LocationMonitoringService _locationMonitor = LocationMonitoringService();
+  static bool _isInitialized = false;
   
   static void setVehicleId(String vehicleId) {
     _vehicleId = vehicleId.isEmpty ? 'ALP4' : vehicleId;
   }
 
-  // Get next sequential timestamp (5 seconds apart)
-  static DateTime _getNextSequentialTimestamp() {
-    if (_isRetryingFailed && _failedUpdates.isNotEmpty) {
-      // Return the timestamp of the first failed update
-      return DateTime.parse(_failedUpdates.first['timestamp']);
-    } else {
-      // Return next 5-second interval
-      return _lastSuccessfulTimestamp.add(const Duration(seconds: 5));
+  // Initialize data buffer service
+  static Future<void> _initializeDataBuffer() async {
+    if (!_isInitialized) {
+      await _dataBuffer.initialize();
+      await _locationMonitor.initialize();
+      _locationMonitor.startMonitoring();
+      _isInitialized = true;
+      print('✅ [BACKGROUND] Data buffer and location monitoring services initialized');
     }
-  }
-
-  // Add failed update to cache
-  static void _addFailedUpdate(Map<String, dynamic> payload) {
-    final timestamp = _getNextSequentialTimestamp();
-    final failedUpdate = {
-      'timestamp': timestamp.toIso8601String().substring(0, 19) + 'Z',
-      'payload': payload,
-      'retryCount': 0,
-    };
-    _failedUpdates.add(failedUpdate);
-    print('📦 [BACKGROUND] Cached failed update for timestamp: ${failedUpdate['timestamp']}');
-  }
-
-  // Retry failed updates in sequence
-  static Future<void> _retryFailedUpdates() async {
-    if (_failedUpdates.isEmpty || _isRetryingFailed) return;
-    
-    _isRetryingFailed = true;
-    print('🔄 [BACKGROUND] Starting retry of ${_failedUpdates.length} failed updates...');
-    
-    while (_failedUpdates.isNotEmpty) {
-      final failedUpdate = _failedUpdates.first;
-      failedUpdate['retryCount'] = (failedUpdate['retryCount'] ?? 0) + 1;
-      
-      print('🔄 [BACKGROUND] Retrying update #${failedUpdate['retryCount']} for timestamp: ${failedUpdate['timestamp']}');
-      
-      try {
-        final response = await http.post(
-          Uri.parse(_apiUrl),
-          headers: {'Content-Type': 'application/json'},
-          body: json.encode(failedUpdate['payload']),
-        );
-        
-        if (response.statusCode == 200) {
-          print('✅ [BACKGROUND] Retry successful for timestamp: ${failedUpdate['timestamp']}');
-          _failedUpdates.removeAt(0);
-          _lastSuccessfulTimestamp = DateTime.parse(failedUpdate['timestamp'].replaceAll('Z', ''));
-          _updateCounter++;
-        } else {
-          print('❌ [BACKGROUND] Retry failed for timestamp: ${failedUpdate['timestamp']} (Status: ${response.statusCode})');
-          if (failedUpdate['retryCount'] >= 3) {
-            print('🚫 [BACKGROUND] Max retries reached, removing from cache: ${failedUpdate['timestamp']}');
-            _failedUpdates.removeAt(0);
-          } else {
-            // Move to end of queue for later retry
-            _failedUpdates.add(_failedUpdates.removeAt(0));
-          }
-        }
-      } catch (e) {
-        print('❌ [BACKGROUND] Retry error for timestamp: ${failedUpdate['timestamp']}: $e');
-        if (failedUpdate['retryCount'] >= 3) {
-          print('🚫 [BACKGROUND] Max retries reached, removing from cache: ${failedUpdate['timestamp']}');
-          _failedUpdates.removeAt(0);
-        } else {
-          _failedUpdates.add(_failedUpdates.removeAt(0));
-        }
-      }
-      
-      // Wait 2 seconds between retries
-      await Future.delayed(const Duration(seconds: 2));
-    }
-    
-    _isRetryingFailed = false;
-    print('✅ [BACKGROUND] Finished retrying failed updates');
   }
 
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     print('🟢 Background location service started');
+    
+    // Initialize data buffer service
+    await _initializeDataBuffer();
+    
     // Initialize location services in background
     await _initializeBackgroundLocationServices();
     
@@ -151,13 +87,13 @@ class BackgroundLocationService extends TaskHandler {
 
   static Future<void> _sendLocationUpdate() async {
     try {
-      // First, retry any failed updates
-      await _retryFailedUpdates();
+      // Ensure data buffer is initialized
+      await _initializeDataBuffer();
       
       // Check if location services are enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        print('❌ Location services are disabled');
+        print('❌ [BACKGROUND] Location services are disabled');
         return;
       }
 
@@ -165,7 +101,7 @@ class BackgroundLocationService extends TaskHandler {
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied || 
           permission == LocationPermission.deniedForever) {
-        print('❌ Location permissions denied');
+        print('❌ [BACKGROUND] Location permissions denied');
         return;
       }
 
@@ -183,8 +119,11 @@ class BackgroundLocationService extends TaskHandler {
       // Generate dynamic device info
       final deviceInfo = await _getDeviceInfo();
       
-      // Get next sequential timestamp (5 seconds apart)
-      final nextTimestamp = _getNextSequentialTimestamp();
+      // Get unique device ID
+      final deviceId = await DeviceIdService.getDeviceId();
+      
+      // Get next sequential timestamp (5 seconds apart) from data buffer
+      final nextTimestamp = _dataBuffer.getNextSequentialTimestamp();
       final timestampString = nextTimestamp.toIso8601String().substring(0, 19) + 'Z';
         
       // Prepare API payload with all parameters
@@ -194,6 +133,7 @@ class BackgroundLocationService extends TaskHandler {
         "parameters": {
           "mode": 1,
           "UnitId": _vehicleId,
+          "DeviceId": deviceId, // Unique device identifier
           "Latitude": position.latitude,
           "Longitude": position.longitude,
           "Speed": speedKmh,
@@ -213,45 +153,27 @@ class BackgroundLocationService extends TaskHandler {
         }
       };
         
-      print('📤 [BACKGROUND] Sending SEQUENTIAL GPS update: Lat: ${position.latitude}, Lng: ${position.longitude}, Speed: ${speedKmh} km/h');
+      print('📤 [BACKGROUND] Preparing SEQUENTIAL GPS update: Lat: ${position.latitude}, Lng: ${position.longitude}, Speed: ${speedKmh} km/h');
       print('📤 [BACKGROUND] Sequential Timestamp: $timestampString');
         
-      // Check internet connectivity before making API call
-      final connectivityResults = await Connectivity().checkConnectivity();
-      final isConnected = connectivityResults.isNotEmpty && !connectivityResults.contains(ConnectivityResult.none);
+      // Use data buffer service to handle sending (with offline buffering)
+      await _dataBuffer.sendLocationData(payload);
       
-      if (!isConnected) {
-        print('❌ [BACKGROUND] No internet connection - adding to failed updates cache');
-        _addFailedUpdate(payload);
-        return;
-      }
-        
-      // Make API call
-      final response = await http.post(
-        Uri.parse(_apiUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(payload),
+      // Update counter and notification
+      _updateCounter++;
+      print('✅ [BACKGROUND] Sequential update #$_updateCounter prepared for timestamp: $timestampString');
+      
+      // Update foreground task notification with buffer status
+      final bufferStatus = _dataBuffer.getBufferStatus();
+      FlutterForegroundTask.updateService(
+        notificationTitle: '🚒 MFB Field Tracking',
+        notificationText: '📍 Update #$_updateCounter • Speed: ${speedKmh} km/h • ID: $_vehicleId • Buffer: ${bufferStatus['bufferSize']}',
       );
-        
-      if (response.statusCode == 200) {
-        _updateCounter++;
-        _lastSuccessfulTimestamp = nextTimestamp;
-        print('✅ [BACKGROUND] Sequential update #$_updateCounter sent successfully for timestamp: $timestampString');
-        
-        // Update foreground task notification
-        FlutterForegroundTask.updateService(
-          notificationTitle: '🚒 MFB Field Tracking',
-          notificationText: '📍 Update #$_updateCounter • Speed: ${speedKmh} km/h • ID: $_vehicleId',
-        );
-      } else {
-        print('❌ [BACKGROUND] Failed to send sequential update for timestamp: $timestampString (Status: ${response.statusCode})');
-        _addFailedUpdate(payload);
-      }
+      
     } catch (e) {
+      print('❌ [BACKGROUND] Error in location update: $e');
       // Silent error handling - no user notification
     }
-    
-    // Silent operation - no retry mechanism
   }
 
 

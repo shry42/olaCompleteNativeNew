@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'main_screen.dart'; // Import for MainScreen with bottom navigation
+import '../services/auth_service.dart'; // Import for API authentication
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -85,19 +86,8 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _handleLogin() async {
-    // Validate required fields
-    if (_usernameController.text.trim().isEmpty) {
-      _showSnackBar('❌ Username is required', Colors.red);
-      return;
-    }
-
-    if (_vehicleIdController.text.trim().isEmpty) {
-      _showSnackBar('❌ Vehicle ID is required', Colors.red);
-      return;
-    }
-
-    if (_passwordController.text != 'Pass') {
-      _showSnackBar('❌ Invalid password. Default password is "Pass"', Colors.red);
+    // Validate form
+    if (!_formKey.currentState!.validate()) {
       return;
     }
 
@@ -108,32 +98,58 @@ class _LoginScreenState extends State<LoginScreen>
     // Add haptic feedback
     HapticFeedback.lightImpact();
 
-    // Simulate authentication delay
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    // Successful login
-    _showSnackBar('🔥 Welcome to MFB Field!', Colors.green);
-    
-    // Navigate to MainScreen with user info
-    await Future.delayed(const Duration(milliseconds: 500));
-    
-    if (mounted) {
-      final vehicleId = _vehicleIdController.text.trim();
-      final username = _usernameController.text.trim();
+    try {
+      // Debug: Log what we're sending
+      final userId = _usernameController.text.trim();
+      final password = _passwordController.text.trim();
       
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => MainScreen(
-            vehicleId: vehicleId,
-            username: username,
-          ),
-        ),
+      print('🔍 LoginScreen: UserId entered: "$userId" (length: ${userId.length})');
+      print('🔍 LoginScreen: Password entered: length ${password.length}');
+      
+      // Authenticate with API
+      final userInfo = await AuthService.authenticateUser(
+        userId: userId,
+        password: password,
       );
-    }
 
-    setState(() {
-      _isLoading = false;
-    });
+      if (userInfo != null) {
+        // Successful login
+        _showSnackBar('🔥 Welcome to MFB Field!', Colors.green);
+        
+        // Update vehicle ID field with the value from API response
+        _vehicleIdController.text = userInfo['vehicleId'] ?? userInfo['lname'] ?? 'Unknown';
+        
+        // Navigate to MainScreen with user info
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        if (mounted) {
+          final vehicleId = userInfo['vehicleId'] ?? userInfo['lname'] ?? 'Unknown';
+          final username = userInfo['username'] ?? userInfo['lname'] ?? 'User';
+          
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => MainScreen(
+                vehicleId: vehicleId,
+                username: username,
+              ),
+            ),
+          );
+        }
+      } else {
+        // Authentication failed
+        _showSnackBar('❌ Invalid credentials. Please check your User ID and Password.', Colors.red);
+      }
+    } catch (e) {
+      // Network or other error
+      _showSnackBar('❌ Login failed. Please check your internet connection and try again.', Colors.red);
+      print('Login error: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -369,9 +385,14 @@ class _LoginScreenState extends State<LoginScreen>
             // Username Field
             _buildTextField(
               controller: _usernameController,
-              label: 'Username (Optional)',
+              label: 'User ID *',
               icon: Icons.person_outline,
-              validator: null, // No validation required
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'User ID is required';
+                }
+                return null;
+              },
             ),
             
             const SizedBox(height: 16),
@@ -379,7 +400,7 @@ class _LoginScreenState extends State<LoginScreen>
             // Password Field
             _buildTextField(
               controller: _passwordController,
-              label: 'Password (Optional)',
+              label: 'Password *',
               icon: Icons.lock_outline,
               obscureText: _obscurePassword,
               suffixIcon: IconButton(
@@ -393,17 +414,23 @@ class _LoginScreenState extends State<LoginScreen>
                   });
                 },
               ),
-              validator: null, // No validation required
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Password is required';
+                }
+                return null;
+              },
             ),
             
             const SizedBox(height: 16),
             
-            // Vehicle ID Field
+            // Vehicle ID Field (will be auto-filled from API response)
             _buildTextField(
               controller: _vehicleIdController,
-              label: 'Vehicle ID (Optional)',
+              label: 'Vehicle ID (Auto-filled from login)',
               icon: Icons.fire_truck,
-              validator: null, // No validation required
+              enabled: false, // Disabled as it will be set from API response
+              validator: null,
             ),
             
             const SizedBox(height: 20),
@@ -415,6 +442,12 @@ class _LoginScreenState extends State<LoginScreen>
             
             // Quick Access Info
             _buildQuickAccessInfo(),
+            
+            const SizedBox(height: 12),
+            
+            // Debug Button (only in debug mode)
+            if (const bool.fromEnvironment('dart.vm.product') == false)
+              _buildDebugButton(),
           ],
         ),
       ),
@@ -428,11 +461,13 @@ class _LoginScreenState extends State<LoginScreen>
     bool obscureText = false,
     Widget? suffixIcon,
     String? Function(String?)? validator,
+    bool enabled = true,
   }) {
     return TextFormField(
       controller: controller,
       obscureText: obscureText,
       validator: validator,
+      enabled: enabled,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, color: const Color(0xFFE53E3E)),
@@ -521,13 +556,83 @@ class _LoginScreenState extends State<LoginScreen>
           ),
           const SizedBox(height: 6),
           Text(
-            'Click LOGIN to access the\nMFB Field system\n(Vehicle ID defaults to ALP4 if not provided)',
+            'Enter your User ID and Password\nto access the MFB Field system\n(Vehicle ID will be set from your User ID)',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 10,
               color: Colors.green.shade600,
               fontWeight: FontWeight.w500,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDebugButton() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(Icons.bug_report, color: Colors.orange.shade600, size: 16),
+              const SizedBox(width: 6),
+              Text(
+                'Debug Tools',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.orange.shade700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    _showSnackBar('Testing API with ALP4/101...', Colors.blue);
+                    final result = await AuthService.testAuthenticationWithCredentials('ALP4', '101');
+                    _showSnackBar(
+                      result['success'] 
+                        ? '✅ API Test Success! Status: ${result['statusCode']} - ${result['message']}' 
+                        : '❌ API Test Failed! Status: ${result['statusCode']} - ${result['message']}',
+                      result['success'] ? Colors.green : Colors.red,
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  child: const Text('Test API', style: TextStyle(fontSize: 10)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    _showSnackBar('Testing auth endpoint...', Colors.blue);
+                    await AuthService.testAuthenticationEndpoint();
+                    _showSnackBar('Check console for debug info', Colors.blue);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  child: const Text('Test Auth', style: TextStyle(fontSize: 10)),
+                ),
+              ),
+            ],
           ),
         ],
       ),
