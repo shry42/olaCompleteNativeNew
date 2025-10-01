@@ -445,9 +445,8 @@ class _LoginScreenState extends State<LoginScreen>
             
             const SizedBox(height: 12),
             
-            // Debug Button (only in debug mode)
-            if (const bool.fromEnvironment('dart.vm.product') == false)
-              _buildDebugButton(),
+            // Debug Button (available in all builds)
+            _buildDebugButton(),
           ],
         ),
       ),
@@ -584,7 +583,7 @@ class _LoginScreenState extends State<LoginScreen>
               Icon(Icons.bug_report, color: Colors.orange.shade600, size: 16),
               const SizedBox(width: 6),
               Text(
-                'Debug Tools',
+                'API Test Tools',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -613,7 +612,7 @@ class _LoginScreenState extends State<LoginScreen>
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 8),
                   ),
-                  child: const Text('Test API', style: TextStyle(fontSize: 10)),
+                  child: const Text('Test Login', style: TextStyle(fontSize: 10)),
                 ),
               ),
               const SizedBox(width: 8),
@@ -629,7 +628,7 @@ class _LoginScreenState extends State<LoginScreen>
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 8),
                   ),
-                  child: const Text('Test Auth', style: TextStyle(fontSize: 10)),
+                  child: const Text('Test Endpoint', style: TextStyle(fontSize: 10)),
                 ),
               ),
             ],
