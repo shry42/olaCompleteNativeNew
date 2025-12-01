@@ -55,24 +55,169 @@ class AuthService {
         
         // Check if authentication was successful
         if (responseData['result'] == true && responseData['message'] == 'Success') {
-          // Extract user information from the response
+          // Check for "already in use" message in the response
           final userInfo = _extractUserInfo(responseData);
+          final isAlreadyInUse = _checkIfAlreadyInUse(responseData);
+          
+          if (isAlreadyInUse) {
+            print('⚠️ AuthService: User already active in other devices');
+            return {
+              'error': 'already_in_use',
+              'message': 'User already active in other devices. Please logout from other devices first.',
+            };
+          }
+          
           print('✅ AuthService: User info extracted: $userInfo');
           return userInfo;
         } else {
           // Authentication failed
           print('❌ AuthService: Authentication failed: ${responseData['message']}');
-          return null;
+          return {
+            'error': 'auth_failed',
+            'message': responseData['message'] ?? 'Authentication failed',
+          };
         }
       } else {
         // HTTP error
         print('❌ AuthService: HTTP error: ${response.statusCode} - ${response.body}');
-        return null;
+        return {
+          'error': 'http_error',
+          'message': 'Server error: ${response.statusCode}',
+        };
       }
     } catch (e) {
       // Network or parsing error
       print('❌ AuthService: Authentication error: $e');
-      return null;
+      return {
+        'error': 'network_error',
+        'message': 'Network error: $e',
+      };
+    }
+  }
+
+  /// Logs out user with the provided credentials
+  /// Returns true if successful, false if failed
+  static Future<Map<String, dynamic>> logoutUser({
+    required String userId,
+    required String password,
+  }) async {
+    try {
+      print('🚪 AuthService: Attempting logout with UserId: "$userId"');
+      
+      // Prepare the request payload for logout (mode: 2)
+      final Map<String, dynamic> requestBody = {
+        "storedProcedureName": "UserValidation",
+        "DbType": "SQL",
+        "parameters": {
+          "mode": 2, // Mode 2 for logout
+          "UserId": userId,
+          "Password": password,
+        }
+      };
+
+      print('📤 AuthService: Logout request body: ${json.encode(requestBody)}');
+
+      // Make the API request
+      final response = await http.post(
+        Uri.parse(baseUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: json.encode(requestBody),
+      ).timeout(const Duration(seconds: 30));
+
+      print('📥 AuthService: Logout response status: ${response.statusCode}');
+      print('📥 AuthService: Logout response body: ${response.body}');
+
+      // Check if request was successful
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = json.decode(response.body);
+        
+        // Check if logout was successful
+        if (responseData['result'] == true && responseData['message'] == 'Success') {
+          // Check for successful logout message
+          final isLogoutSuccessful = _checkIfLogoutSuccessful(responseData);
+          
+          if (isLogoutSuccessful) {
+            print('✅ AuthService: Logout successful');
+            return {
+              'success': true,
+              'message': 'User successfully logged out',
+            };
+          } else {
+            print('❌ AuthService: Logout failed - unexpected response');
+            return {
+              'success': false,
+              'message': 'Logout failed - unexpected response',
+            };
+          }
+        } else {
+          print('❌ AuthService: Logout failed: ${responseData['message']}');
+          return {
+            'success': false,
+            'message': responseData['message'] ?? 'Logout failed',
+          };
+        }
+      } else {
+        print('❌ AuthService: Logout HTTP error: ${response.statusCode} - ${response.body}');
+        return {
+          'success': false,
+          'message': 'Server error: ${response.statusCode}',
+        };
+      }
+    } catch (e) {
+      print('❌ AuthService: Logout error: $e');
+      return {
+        'success': false,
+        'message': 'Network error: $e',
+      };
+    }
+  }
+
+  /// Checks if the response indicates user is already in use
+  static bool _checkIfAlreadyInUse(Map<String, dynamic> responseData) {
+    try {
+      final commonReportMasterList = responseData['commonReportMasterList'] as List?;
+      
+      if (commonReportMasterList != null && commonReportMasterList.length >= 2) {
+        final userDataString = commonReportMasterList[1]['returnValue'] as String?;
+        
+        if (userDataString != null && userDataString.isNotEmpty) {
+          // Check if the response contains "already active" message
+          return userDataString.contains('already active') || 
+                 userDataString.contains('already in use') ||
+                 userDataString.contains('User already active');
+        }
+      }
+      
+      return false;
+    } catch (e) {
+      print('Error checking if already in use: $e');
+      return false;
+    }
+  }
+
+  /// Checks if the logout response indicates successful logout
+  static bool _checkIfLogoutSuccessful(Map<String, dynamic> responseData) {
+    try {
+      final commonReportMasterList = responseData['commonReportMasterList'] as List?;
+      
+      if (commonReportMasterList != null && commonReportMasterList.length >= 2) {
+        final userDataString = commonReportMasterList[1]['returnValue'] as String?;
+        
+        if (userDataString != null && userDataString.isNotEmpty) {
+          // Check if the response contains successful logout message
+          return userDataString.contains('successfully logout') || 
+                 userDataString.contains('User successfully logout') ||
+                 userDataString.contains('logout');
+        }
+      }
+      
+      return false;
+    } catch (e) {
+      print('Error checking if logout successful: $e');
+      return false;
     }
   }
 

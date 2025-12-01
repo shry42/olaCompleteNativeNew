@@ -92,6 +92,7 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
+
   @override
   Widget build(BuildContext context) {
     // Show permission request screen if permissions not granted

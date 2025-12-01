@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'main_screen.dart'; // Import for MainScreen with bottom navigation
 import '../services/auth_service.dart'; // Import for API authentication
+import '../services/user_session_service.dart'; // Import for session management
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,9 +14,8 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen>
     with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
   final _vehicleIdController = TextEditingController();
+  final _passwordController = TextEditingController();
   
   bool _obscurePassword = true;
   bool _isLoading = false;
@@ -58,13 +58,41 @@ class _LoginScreenState extends State<LoginScreen>
     // Start animations
     _fadeController.forward();
     _slideController.forward();
+    
+    // Check if user is already logged in (fallback check)
+    _checkExistingSession();
+  }
+
+  Future<void> _checkExistingSession() async {
+    try {
+      final isLoggedIn = await UserSessionService.isUserLoggedIn();
+      if (isLoggedIn) {
+        print('⚠️ LoginScreen: User already logged in, redirecting to main screen');
+        // User is already logged in, redirect to main screen
+        final userData = await UserSessionService.getAllUserData();
+        final username = userData['username'] ?? 'User';
+        final vehicleId = userData['vehicleId'] ?? 'Unknown';
+        
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => MainScreen(
+                vehicleId: vehicleId,
+                username: username,
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('❌ LoginScreen: Error checking existing session: $e');
+    }
   }
 
   @override
   void dispose() {
-    _usernameController.dispose();
-    _passwordController.dispose();
     _vehicleIdController.dispose();
+    _passwordController.dispose();
     _fadeController.dispose();
     _slideController.dispose();
     super.dispose();
@@ -85,6 +113,111 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
+  void _showAlreadyInUseDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.orange.shade600,
+              size: 28,
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'User Already Active',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF2D3748),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color(0xFF4A5568),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: Colors.orange.shade600,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Please logout from other devices first, or contact your administrator if this is unexpected.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.orange.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.grey.shade600,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Optionally, you could add a "Force Login" option here
+              // that calls the API with a different mode or parameter
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE53E3E),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text(
+              'Try Again',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _handleLogin() async {
     // Validate form
     if (!_formKey.currentState!.validate()) {
@@ -100,31 +233,39 @@ class _LoginScreenState extends State<LoginScreen>
 
     try {
       // Debug: Log what we're sending
-      final userId = _usernameController.text.trim();
+      final vehicleId = _vehicleIdController.text.trim();
       final password = _passwordController.text.trim();
       
-      print('🔍 LoginScreen: UserId entered: "$userId" (length: ${userId.length})');
+      print('🔍 LoginScreen: VehicleId entered: "$vehicleId" (length: ${vehicleId.length})');
       print('🔍 LoginScreen: Password entered: length ${password.length}');
       
-      // Authenticate with API
-      final userInfo = await AuthService.authenticateUser(
-        userId: userId,
+      // Authenticate with API (using vehicleId as userId since they are the same)
+      final result = await AuthService.authenticateUser(
+        userId: vehicleId,
         password: password,
       );
 
-      if (userInfo != null) {
+      if (result != null && result['error'] == null) {
         // Successful login
         _showSnackBar('🔥 Welcome to MFB Field!', Colors.green);
         
         // Update vehicle ID field with the value from API response
-        _vehicleIdController.text = userInfo['vehicleId'] ?? userInfo['lname'] ?? 'Unknown';
+        _vehicleIdController.text = result['vehicleId'] ?? result['lname'] ?? 'Unknown';
+        
+        // Store user session data for logout functionality
+        await UserSessionService.storeUserSession(
+          userId: vehicleId, // Using vehicleId as userId since they are the same
+          password: password,
+          username: result['username'] ?? result['lname'] ?? 'User',
+          vehicleId: result['vehicleId'] ?? result['lname'] ?? vehicleId,
+        );
         
         // Navigate to MainScreen with user info
         await Future.delayed(const Duration(milliseconds: 500));
         
         if (mounted) {
-          final vehicleId = userInfo['vehicleId'] ?? userInfo['lname'] ?? 'Unknown';
-          final username = userInfo['username'] ?? userInfo['lname'] ?? 'User';
+          final vehicleId = result['vehicleId'] ?? result['lname'] ?? 'Unknown';
+          final username = result['username'] ?? result['lname'] ?? 'User';
           
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
@@ -135,9 +276,21 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           );
         }
-      } else {
+      } else if (result != null && result['error'] == 'already_in_use') {
+        // User already active in other devices
+        _showAlreadyInUseDialog(result['message'] ?? 'User already active in other devices.');
+      } else if (result != null && result['error'] == 'auth_failed') {
         // Authentication failed
-        _showSnackBar('❌ Invalid credentials. Please check your User ID and Password.', Colors.red);
+        _showSnackBar('❌ ${result['message'] ?? 'Invalid credentials. Please check your Vehicle ID and Password.'}', Colors.red);
+      } else if (result != null && result['error'] == 'http_error') {
+        // Server error
+        _showSnackBar('❌ ${result['message'] ?? 'Server error. Please try again later.'}', Colors.red);
+      } else if (result != null && result['error'] == 'network_error') {
+        // Network error
+        _showSnackBar('❌ ${result['message'] ?? 'Network error. Please check your internet connection.'}', Colors.red);
+      } else {
+        // Unknown error
+        _showSnackBar('❌ Login failed. Please try again.', Colors.red);
       }
     } catch (e) {
       // Network or other error
@@ -382,14 +535,14 @@ class _LoginScreenState extends State<LoginScreen>
             
             const SizedBox(height: 20),
             
-            // Username Field
+            // Vehicle ID Field
             _buildTextField(
-              controller: _usernameController,
-              label: 'User ID *',
-              icon: Icons.person_outline,
+              controller: _vehicleIdController,
+              label: 'Vehicle ID *',
+              icon: Icons.fire_truck,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'User ID is required';
+                  return 'Vehicle ID is required';
                 }
                 return null;
               },
@@ -420,17 +573,6 @@ class _LoginScreenState extends State<LoginScreen>
                 }
                 return null;
               },
-            ),
-            
-            const SizedBox(height: 16),
-            
-            // Vehicle ID Field (will be auto-filled from API response)
-            _buildTextField(
-              controller: _vehicleIdController,
-              label: 'Vehicle ID (Auto-filled from login)',
-              icon: Icons.fire_truck,
-              enabled: false, // Disabled as it will be set from API response
-              validator: null,
             ),
             
             const SizedBox(height: 20),
@@ -555,7 +697,7 @@ class _LoginScreenState extends State<LoginScreen>
           ),
           const SizedBox(height: 6),
           Text(
-            'Enter your User ID and Password\nto access the MFB Field system\n(Vehicle ID will be set from your User ID)',
+            'Enter your Vehicle ID and Password\nto access the MFB Field system',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 10,

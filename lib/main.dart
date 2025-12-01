@@ -12,7 +12,12 @@ import 'services/connectivity_service.dart';
 import 'services/device_id_service.dart';
 import 'services/data_buffer_service.dart';
 import 'services/location_monitoring_service.dart';
+import 'services/user_session_service.dart'; // Import session management
+import 'services/stationary_detection_service.dart'; // Import stationary detection
+import 'services/notification_service.dart'; // Import notification service
 import 'screens/login_screen.dart'; // Import login screen
+import 'screens/main_screen.dart'; // Import main screen
+import 'widgets/stationary_warning_dialog.dart'; // Import warning dialog
 
 void main() async {
   // Initialize Flutter binding
@@ -71,9 +76,205 @@ class MyApp extends StatelessWidget {
           foregroundColor: Colors.white,
         ),
       ),
-      home: const LoginScreen(), // Start with login screen
+      home: const AppStartupScreen(), // Start with startup screen that checks session
       debugShowCheckedModeBanner: false,
     );
+  }
+}
+
+class AppStartupScreen extends StatefulWidget {
+  const AppStartupScreen({super.key});
+
+  @override
+  State<AppStartupScreen> createState() => _AppStartupScreenState();
+}
+
+class _AppStartupScreenState extends State<AppStartupScreen> {
+  bool _isCheckingSession = true;
+  bool _hasValidSession = false;
+  String? _username;
+  String? _vehicleId;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkExistingSession();
+  }
+
+  Future<void> _checkExistingSession() async {
+    try {
+      print('🔄 AppStartupScreen: Checking for existing session...');
+      
+      // Check if user has stored session data
+      final isLoggedIn = await UserSessionService.isUserLoggedIn();
+      
+      if (isLoggedIn) {
+        print('✅ AppStartupScreen: Found existing session');
+        
+        // Get stored user data
+        final userData = await UserSessionService.getAllUserData();
+        final username = userData['username'];
+        final vehicleId = userData['vehicleId'];
+        
+        if (username != null && vehicleId != null) {
+          print('✅ AppStartupScreen: Valid session data found');
+          print('   Username: $username');
+          print('   Vehicle ID: $vehicleId');
+          
+          setState(() {
+            _isCheckingSession = false;
+            _hasValidSession = true;
+            _username = username;
+            _vehicleId = vehicleId;
+          });
+        } else {
+          print('⚠️ AppStartupScreen: Incomplete session data, clearing session');
+          await UserSessionService.clearUserSession();
+          setState(() {
+            _isCheckingSession = false;
+            _hasValidSession = false;
+          });
+        }
+      } else {
+        print('ℹ️ AppStartupScreen: No existing session found');
+        setState(() {
+          _isCheckingSession = false;
+          _hasValidSession = false;
+        });
+      }
+    } catch (e) {
+      print('❌ AppStartupScreen: Error checking session: $e');
+      // On error, clear any potentially corrupted session data
+      await UserSessionService.clearUserSession();
+      setState(() {
+        _isCheckingSession = false;
+        _hasValidSession = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isCheckingSession) {
+      // Show loading screen while checking session
+      return Scaffold(
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFE53E3E), // Fire red
+                Color(0xFFD53F8C), // Pink red
+                Color(0xFF9F7AEA), // Purple
+              ],
+            ),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // MFB Logo
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.4),
+                      width: 3,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/images/mfb.jpg',
+                      width: 100,
+                      height: 100,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => const Icon(
+                        Icons.local_fire_department,
+                        size: 50,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // App Title
+                const Text(
+                  'MUMBAI FIRE BRIGADE',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: 2,
+                    shadows: [
+                      Shadow(
+                        offset: Offset(2, 2),
+                        blurRadius: 4,
+                        color: Colors.black26,
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 8),
+                
+                const Text(
+                  'MFB Field',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    letterSpacing: 1,
+                  ),
+                ),
+                
+                const SizedBox(height: 40),
+                
+                // Loading indicator
+                const CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  strokeWidth: 3,
+                ),
+                
+                const SizedBox(height: 16),
+                
+                const Text(
+                  'Checking session...',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } else if (_hasValidSession && _username != null && _vehicleId != null) {
+      // User has valid session, go to main screen
+      print('🚀 AppStartupScreen: Navigating to MainScreen with existing session');
+      return MainScreen(
+        vehicleId: _vehicleId!,
+        username: _username!,
+      );
+    } else {
+      // No valid session, show login screen
+      print('🔐 AppStartupScreen: No valid session, showing LoginScreen');
+      return const LoginScreen();
+    }
   }
 }
 
@@ -92,6 +293,8 @@ class _NavigationScreenState extends State<NavigationScreen> with WidgetsBinding
   final ConnectivityService _connectivityService = ConnectivityService();
   final DataBufferService _dataBuffer = DataBufferService();
   final LocationMonitoringService _locationMonitor = LocationMonitoringService();
+  final StationaryDetectionService _stationaryDetector = StationaryDetectionService();
+  final NotificationService _notificationService = NotificationService();
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
   
@@ -108,12 +311,14 @@ class _NavigationScreenState extends State<NavigationScreen> with WidgetsBinding
   Timer? _locationTimer;
   Timer? _displayTimer;
   int _updateCounter = 0;
+  int _successfulUpdateCounter = 0; // Only successful updates
   int _secondsElapsed = 0;
   double _lastSpeed = 0.0;
   int _batteryLevel = 100;
   int _bufferSize = 0;
   bool _isSendingBufferedData = false;
   int _locationWarningCount = 0;
+  bool _isApiFailing = false; // Track API failure state
 
 
   @override
@@ -126,6 +331,8 @@ class _NavigationScreenState extends State<NavigationScreen> with WidgetsBinding
     _initializeConnectivity();
     _initializeDataBuffer();
     _initializeLocationMonitoring();
+    _initializeStationaryDetection();
+    _initializeNotifications();
     _updateBatteryLevel(); // Get initial battery level
   }
 
@@ -229,6 +436,192 @@ class _NavigationScreenState extends State<NavigationScreen> with WidgetsBinding
 
   void _showLocationWarningDialog() {
     _locationMonitor.showLocationWarningDialog(context);
+  }
+
+  void _showStationaryWarningDialog() {
+    if (!mounted) return;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StationaryWarningDialog(
+        vehicleId: widget.vehicleId,
+        message: 'Vehicle has been stationary for more than 4 minutes. Is the vehicle still in use?',
+        onStopVehicle: _stopVehicle,
+        onContinue: _continueVehicle,
+      ),
+    );
+    
+    // Show notification
+    _notificationService.showStationaryWarning(
+      vehicleId: widget.vehicleId,
+      message: 'Vehicle has been stationary for more than 4 minutes',
+    );
+  }
+
+  void _hideStationaryWarning() {
+    // Cancel notification
+    _notificationService.cancelStationaryWarning();
+  }
+
+  void _showStationarySnackBar(String message) {
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.warning, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.orange,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'View',
+          textColor: Colors.white,
+          onPressed: () {
+            _showStationaryWarningDialog();
+          },
+        ),
+      ),
+    );
+  }
+
+  void _stopVehicle() {
+    print('🛑 Stopping vehicle: ${widget.vehicleId}');
+    
+    // Stop location tracking (this will also clear buffered data)
+    _stopLocationTracking();
+    
+    // Stop stationary detection
+    _stationaryDetector.stopMonitoring();
+    
+    // Show confirmation
+    _showSnackBar('🛑 Vehicle stopped successfully - All data cleared', Colors.red);
+    
+    // Show notification
+    _notificationService.showVehicleStopped(
+      vehicleId: widget.vehicleId,
+      message: 'Vehicle has been stopped due to inactivity - All buffered data cleared',
+    );
+    
+    // Reset stationary detection
+    _stationaryDetector.resetStationaryDetection();
+  }
+
+  void _continueVehicle() {
+    print('▶️ Continuing vehicle: ${widget.vehicleId}');
+    
+    // Reset stationary detection
+    _stationaryDetector.resetStationaryDetection();
+    
+    // Show confirmation
+    _showSnackBar('▶️ Vehicle monitoring continued', Colors.green);
+    
+    // Cancel warning notification
+    _notificationService.cancelStationaryWarning();
+  }
+
+  void _showStopConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Stop Tracking'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Are you sure you want to stop location tracking?'),
+            const SizedBox(height: 12),
+            if (_bufferSize > 0) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.storage, color: Colors.orange.shade700, size: 16),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Buffered Data Warning',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.orange.shade700,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'You have $_bufferSize location updates stored in buffer. Stopping will permanently delete all buffered data.',
+                      style: TextStyle(
+                        color: Colors.orange.shade700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _stopLocationTracking();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Stop & Clear All'),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  /// Handle successful buffered data sending (called from data buffer service)
+  void _onBufferedDataSent(int count) {
+    setState(() {
+      _successfulUpdateCounter += count;
+      _isSendingBufferedData = true;
+    });
+    
+    // Show fast counting effect
+    _showSnackBar('📤 Sending $count buffered updates...', Colors.green);
+    
+    // Reset sending state after a delay
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _isSendingBufferedData = false;
+        });
+      }
+    });
   }
 
   Future<void> _searchPlaces(String query) async {
@@ -606,7 +999,9 @@ Future<void> _selectPlace(PlaceResult place) async {
                                   ),
                                 ),
                                 Text(
-                                  '$_updateCounter updates',
+                                  _isApiFailing 
+                                    ? '$_successfulUpdateCounter successful (${_updateCounter - _successfulUpdateCounter} buffered)'
+                                    : '$_updateCounter updates',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w400,
@@ -661,6 +1056,23 @@ Future<void> _selectPlace(PlaceResult place) async {
                                     fontSize: 7,
                                   ),
                                 ),
+                                Text(
+                                  _stationaryDetector.isMonitoring ? '🚗 Stationary Monitor ON' : '🚗 Stationary Monitor OFF',
+                                  style: TextStyle(
+                                    color: _stationaryDetector.isMonitoring ? Colors.blue[300] : Colors.grey[300],
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 7,
+                                  ),
+                                ),
+                                if (_isApiFailing)
+                                  Text(
+                                    '⚠️ API Failing - Data Buffered',
+                                    style: TextStyle(
+                                      color: Colors.red[300],
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 7,
+                                    ),
+                                  ),
                                 if (!_isLocationEnabled && _locationWarningCount > 0)
                                   Text(
                                     'Warnings: $_locationWarningCount',
@@ -680,7 +1092,7 @@ Future<void> _selectPlace(PlaceResult place) async {
                                 ),
                                 if (_isSendingBufferedData)
                                   Text(
-                                    'Sending...',
+                                    '📤 Sending buffered data...',
                                     style: TextStyle(
                                       color: Colors.green[300],
                                       fontWeight: FontWeight.w400,
@@ -701,7 +1113,7 @@ Future<void> _selectPlace(PlaceResult place) async {
                       elevation: 4,
                       borderRadius: BorderRadius.circular(8),
                       child: InkWell(
-                        onTap: _stopLocationTracking,
+                        onTap: _showStopConfirmationDialog,
                         borderRadius: BorderRadius.circular(8),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -974,6 +1386,9 @@ Future<void> _selectPlace(PlaceResult place) async {
         _showSnackBar('⚠️ Background tracking disabled - will pause when locked', Colors.orange);
       }
       
+      // Start stationary detection
+      _stationaryDetector.startMonitoring();
+      
       // Send initial location immediately
       await _sendLocationUpdate();
       
@@ -1005,6 +1420,12 @@ Future<void> _selectPlace(PlaceResult place) async {
     // Disable wake lock
     await WakelockPlus.disable();
     
+    // Stop stationary detection
+    _stationaryDetector.stopMonitoring();
+    
+    // Clear all buffered data
+    await _dataBuffer.clearAllBufferedData();
+    
     // Cancel foreground timers
     _locationTimer?.cancel();
     _displayTimer?.cancel();
@@ -1013,9 +1434,11 @@ Future<void> _selectPlace(PlaceResult place) async {
     
     setState(() {
       _isTrackingStarted = false;
+      _isApiFailing = false;
+      _isSendingBufferedData = false;
     });
     
-    _showSnackBar('🔴 Location tracking stopped (${_updateCounter} updates sent)', Colors.orange);
+    _showSnackBar('🔴 Location tracking stopped (${_updateCounter} updates sent) - Buffer cleared', Colors.orange);
   }
   
   Future<void> _updateBatteryLevel() async {
@@ -1068,6 +1491,10 @@ Future<void> _selectPlace(PlaceResult place) async {
       });
     };
     
+    _dataBuffer.onBufferedDataSent = (int count) {
+      _onBufferedDataSent(count);
+    };
+    
     // Get initial buffer status
     final bufferStatus = _dataBuffer.getBufferStatus();
     setState(() {
@@ -1109,6 +1536,28 @@ Future<void> _selectPlace(PlaceResult place) async {
     _locationMonitor.startMonitoring();
     
     print('🔍 Location monitoring service initialized. Location enabled: $_isLocationEnabled');
+  }
+
+  Future<void> _initializeStationaryDetection() async {
+    // Set up stationary detection callbacks (but don't start monitoring yet)
+    _stationaryDetector.onVehicleStationary = () {
+      _showStationaryWarningDialog();
+    };
+    
+    _stationaryDetector.onVehicleMoving = () {
+      _hideStationaryWarning();
+    };
+    
+    _stationaryDetector.onWarningMessage = (message) {
+      _showStationarySnackBar(message);
+    };
+    
+    print('🚗 Stationary detection service initialized (not started yet)');
+  }
+
+  Future<void> _initializeNotifications() async {
+    await _notificationService.initialize();
+    print('🔔 Notification service initialized');
   }
 
   /// Restart location monitoring when app resumes
@@ -1292,20 +1741,47 @@ Future<void> _selectPlace(PlaceResult place) async {
         print('📤 Preparing SEQUENTIAL GPS update: Lat: ${position.latitude}, Lng: ${position.longitude}, Speed: ${speedKmh} km/h');
         print('📤 Sequential Timestamp: $timestampString');
         
-        // Use data buffer service to handle sending (with offline buffering)
-        await _dataBuffer.sendLocationData(payload);
-        
         // Update counter and UI
         _updateCounter++;
         setState(() {
           _lastSpeed = speedKmh.toDouble();
         });
         
-        print('✅ Sequential update #$_updateCounter prepared for timestamp: $timestampString');
+        // Try direct send first, fallback to buffer if fails
+        if (_isConnected && _bufferSize == 0) {
+          // Try direct send
+          final success = await _dataBuffer.sendLocationDataDirect(payload);
+          if (success) {
+            // API call successful - increment successful counter
+            setState(() {
+              _successfulUpdateCounter++;
+              _isApiFailing = false;
+            });
+            print('✅ Sequential update #$_updateCounter sent successfully for timestamp: $timestampString');
+          } else {
+            // Direct send failed - add to buffer
+            await _dataBuffer.addLocationData(payload);
+            setState(() {
+              _isApiFailing = true;
+            });
+            print('❌ Sequential update #$_updateCounter failed, added to buffer for timestamp: $timestampString');
+          }
+        } else {
+          // Add to buffer (offline or buffer exists)
+          await _dataBuffer.addLocationData(payload);
+          setState(() {
+            _isApiFailing = true;
+          });
+          print('📦 Sequential update #$_updateCounter added to buffer for timestamp: $timestampString');
+        }
         
         // Show success message less frequently to avoid spam
         if (_isTrackingStarted && _updateCounter % 5 == 0) { // Show every 5th update
-          _showSnackBar('📍 ${_updateCounter} sequential updates prepared', Colors.blue);
+          if (_isApiFailing) {
+            _showSnackBar('📍 ${_successfulUpdateCounter} successful, ${_updateCounter - _successfulUpdateCounter} buffered', Colors.orange);
+          } else {
+            _showSnackBar('📍 ${_updateCounter} sequential updates sent', Colors.blue);
+          }
         }
       
     } catch (e) {
@@ -1334,6 +1810,7 @@ Future<void> _selectPlace(PlaceResult place) async {
     // Dispose services
     _connectivityService.dispose();
     _locationMonitor.dispose();
+    _stationaryDetector.dispose();
     
     super.dispose();
   }

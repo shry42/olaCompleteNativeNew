@@ -29,6 +29,7 @@ class DataBufferService {
   // Callbacks
   Function(int bufferSize)? onBufferSizeChanged;
   Function(bool isSending)? onSendingStateChanged;
+  Function(int count)? onBufferedDataSent; // Callback for successful buffered data sends
 
   /// Initialize the data buffer service
   Future<void> initialize() async {
@@ -235,13 +236,23 @@ class DataBufferService {
   Future<void> _processBufferedItemsSequentially() async {
     print('🔄 [BUFFER] Starting STRICT SEQUENTIAL processing of ${_dataBuffer.length} items...');
     
+    int sentCount = 0;
+    
     while (_dataBuffer.isNotEmpty && _isConnected && _isSendingBufferedData) {
       final success = await _processNextBufferedItem();
+      
+      if (success) {
+        sentCount++;
+      }
       
       if (!success) {
         // STRICT SEQUENTIAL: If any item fails, stop completely
         print('❌ [BUFFER] STRICT SEQUENTIAL: Item failed to send. STOPPING all sending until connectivity improves.');
         _stopRapidSending();
+        // Notify about total sent count before stopping
+        if (sentCount > 0) {
+          onBufferedDataSent?.call(sentCount);
+        }
         return;
       }
       
@@ -253,6 +264,11 @@ class DataBufferService {
     
     // Stop sending when done or disconnected
     _stopRapidSending();
+    
+    // Notify about total sent count
+    if (sentCount > 0) {
+      onBufferedDataSent?.call(sentCount);
+    }
   }
 
   /// Stop rapid sending
@@ -347,7 +363,12 @@ class DataBufferService {
     }
   }
 
-  /// Send location data directly (without buffering)
+  /// Send location data directly (without buffering) - Public method
+  Future<bool> sendLocationDataDirect(Map<String, dynamic> locationData) async {
+    return await _sendLocationDataDirect(locationData);
+  }
+
+  /// Send location data directly (without buffering) - Private method
   Future<bool> _sendLocationDataDirect(Map<String, dynamic> locationData) async {
     try {
       final response = await http.post(
@@ -381,6 +402,25 @@ class DataBufferService {
       'nextSequentialTimestamp': _nextSequentialTimestamp.toIso8601String(),
       'isSequential': _validateSequentialOrder(),
     };
+  }
+
+  /// Clear all buffered data
+  Future<void> clearAllBufferedData() async {
+    print('🗑️ [BUFFER] Clearing all buffered data...');
+    
+    // Stop any ongoing sending
+    _stopRapidSending();
+    
+    // Clear the buffer
+    _dataBuffer.clear();
+    
+    // Save empty buffer to storage
+    await _saveBufferToStorage();
+    
+    // Notify about buffer size change
+    onBufferSizeChanged?.call(0);
+    
+    print('✅ [BUFFER] All buffered data cleared');
   }
 
   /// Validate that buffer maintains sequential order
