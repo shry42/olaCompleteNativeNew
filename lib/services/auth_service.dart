@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -29,16 +30,26 @@ class AuthService {
       // Debug: Log the request body
       print('📤 AuthService: Request body: ${json.encode(requestBody)}');
       print('🌐 AuthService: Making request to: $baseUrl');
+      print('🌐 AuthService: Request start time: ${DateTime.now()}');
 
-      // Make the API request
+      // Make the API request with reduced timeout
       final response = await http.post(
         Uri.parse(baseUrl),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'Connection': 'keep-alive',
         },
         body: json.encode(requestBody),
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          print('⏱️ AuthService: Request timeout after 15 seconds');
+          throw TimeoutException('Request timeout after 15 seconds');
+        },
+      );
+      
+      print('🌐 AuthService: Request completed at: ${DateTime.now()}');
 
       // Debug: Log response details
       print('📥 AuthService: Response status: ${response.statusCode}');
@@ -117,7 +128,7 @@ class AuthService {
 
       print('📤 AuthService: Logout request body: ${json.encode(requestBody)}');
 
-      // Make the API request
+      // Make the API request with reduced timeout
       final response = await http.post(
         Uri.parse(baseUrl),
         headers: {
@@ -125,7 +136,7 @@ class AuthService {
           'Accept': 'application/json',
         },
         body: json.encode(requestBody),
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(const Duration(seconds: 15));
 
       print('📥 AuthService: Logout response status: ${response.statusCode}');
       print('📥 AuthService: Logout response body: ${response.body}');

@@ -249,29 +249,44 @@ class _LoginScreenState extends State<LoginScreen>
         // Successful login
         _showSnackBar('🔥 Welcome to MFB Field!', Colors.green);
         
-        // Update vehicle ID field with the value from API response
-        _vehicleIdController.text = result['vehicleId'] ?? result['lname'] ?? 'Unknown';
+        // Extract user data from API response
+        final apiVehicleId = result['vehicleId'] ?? result['usr_id'] ?? vehicleId;
+        final apiUsername = result['username'] ?? result['lname'] ?? 'User';
+        final apiUserId = result['usr_id'] ?? vehicleId; // Use usr_id from API if available, fallback to input
         
-        // Store user session data for logout functionality
-        await UserSessionService.storeUserSession(
-          userId: vehicleId, // Using vehicleId as userId since they are the same
-          password: password,
-          username: result['username'] ?? result['lname'] ?? 'User',
-          vehicleId: result['vehicleId'] ?? result['lname'] ?? vehicleId,
-        );
+        print('💾 LoginScreen: Storing session data...');
+        print('   UserId: $apiUserId');
+        print('   VehicleId: $apiVehicleId');
+        print('   Username: $apiUsername');
+        
+        // Store user session data for logout functionality and persistent login
+        try {
+          await UserSessionService.storeUserSession(
+            userId: apiUserId, // Use API response userId (usr_id) or fallback to input vehicleId
+            password: password, // Store password for logout API call
+            username: apiUsername,
+            vehicleId: apiVehicleId,
+          );
+          print('✅ LoginScreen: Session stored successfully');
+        } catch (e) {
+          print('❌ LoginScreen: Error storing session: $e');
+          // Continue with navigation even if session storage fails
+          // But show a warning
+          _showSnackBar('⚠️ Session storage failed, but login successful', Colors.orange);
+        }
+        
+        // Update vehicle ID field with the value from API response
+        _vehicleIdController.text = apiVehicleId;
         
         // Navigate to MainScreen with user info
         await Future.delayed(const Duration(milliseconds: 500));
         
         if (mounted) {
-          final vehicleId = result['vehicleId'] ?? result['lname'] ?? 'Unknown';
-          final username = result['username'] ?? result['lname'] ?? 'User';
-          
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
               builder: (context) => MainScreen(
-                vehicleId: vehicleId,
-                username: username,
+                vehicleId: apiVehicleId,
+                username: apiUsername,
               ),
             ),
           );

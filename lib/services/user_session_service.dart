@@ -15,14 +15,32 @@ class UserSessionService {
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      
+      // Store all session data
       await prefs.setString(_userIdKey, userId);
       await prefs.setString(_passwordKey, password);
       await prefs.setString(_usernameKey, username);
       await prefs.setString(_vehicleIdKey, vehicleId);
       
-      print('✅ UserSessionService: User session stored successfully');
+      // Verify storage was successful
+      final storedUserId = prefs.getString(_userIdKey);
+      final storedPassword = prefs.getString(_passwordKey);
+      final storedUsername = prefs.getString(_usernameKey);
+      final storedVehicleId = prefs.getString(_vehicleIdKey);
+      
+      if (storedUserId != null && storedPassword != null && storedUsername != null && storedVehicleId != null) {
+        print('✅ UserSessionService: User session stored successfully');
+        print('   Stored UserId: $storedUserId');
+        print('   Stored VehicleId: $storedVehicleId');
+        print('   Stored Username: $storedUsername');
+        print('   Password stored: ${storedPassword.isNotEmpty ? "Yes" : "No"}');
+      } else {
+        print('⚠️ UserSessionService: Session storage incomplete - some values are null');
+        throw Exception('Session storage incomplete');
+      }
     } catch (e) {
       print('❌ UserSessionService: Error storing user session: $e');
+      rethrow; // Re-throw to allow caller to handle the error
     }
   }
 

@@ -15,6 +15,7 @@ import 'services/location_monitoring_service.dart';
 import 'services/user_session_service.dart'; // Import session management
 import 'services/stationary_detection_service.dart'; // Import stationary detection
 import 'services/notification_service.dart'; // Import notification service
+import 'services/auth_service.dart'; // Import auth service for logout
 import 'screens/login_screen.dart'; // Import login screen
 import 'screens/main_screen.dart'; // Import main screen
 import 'widgets/stationary_warning_dialog.dart'; // Import warning dialog
@@ -128,8 +129,8 @@ class _AppStartupScreenState extends State<AppStartupScreen> {
             _vehicleId = vehicleId;
           });
         } else {
-          print('⚠️ AppStartupScreen: Incomplete session data, clearing session');
-          await UserSessionService.clearUserSession();
+          print('⚠️ AppStartupScreen: Incomplete session data, but keeping it (will only clear on logout)');
+          // Don't clear session here - only clear on explicit logout
           setState(() {
             _isCheckingSession = false;
             _hasValidSession = false;
@@ -144,8 +145,9 @@ class _AppStartupScreenState extends State<AppStartupScreen> {
       }
     } catch (e) {
       print('❌ AppStartupScreen: Error checking session: $e');
-      // On error, clear any potentially corrupted session data
-      await UserSessionService.clearUserSession();
+      // On error, don't clear session - only clear on explicit logout
+      // Just mark as no valid session for this startup
+      print('⚠️ AppStartupScreen: Error occurred, but keeping session (will only clear on logout)');
       setState(() {
         _isCheckingSession = false;
         _hasValidSession = false;
@@ -603,6 +605,281 @@ class _NavigationScreenState extends State<NavigationScreen> with WidgetsBinding
     );
   }
 
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.logout, color: Color(0xFFE53E3E)),
+            SizedBox(width: 8),
+            Text('Logout'),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to logout? This will end your current session.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => _handleLogout(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE53E3E),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Force local logout when credentials are not available
+  Future<void> _forceLocalLogout(BuildContext context) async {
+    print('🔄 NavigationScreen: Force local logout initiated');
+    
+    // Stop all active services
+    if (_isTrackingStarted) {
+      await _stopLocationTracking();
+    }
+    _stationaryDetector.stopMonitoring();
+    _locationMonitor.stopMonitoring();
+    
+    // Clear user session data locally
+    await UserSessionService.clearUserSession();
+    print('✅ NavigationScreen: Local session cleared');
+    
+    // Navigate to login screen
+    if (context.mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (route) => false,
+      );
+    }
+    
+    // Show message
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Logged out locally. Server was not notified.'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+    print('✅ NavigationScreen: Force local logout completed');
+  }
+
+  Future<void> _handleLogout(BuildContext context) async {
+    // Close the dialog first
+    Navigator.of(context).pop();
+    
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE53E3E)),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Logging out...',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF2D3748),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      // Stop all active services first
+      print('🚪 NavigationScreen: Stopping all services...');
+      
+      // Stop location tracking if active
+      if (_isTrackingStarted) {
+        await _stopLocationTracking();
+      }
+      
+      // Stop stationary detection
+      _stationaryDetector.stopMonitoring();
+      
+      // Stop location monitoring
+      _locationMonitor.stopMonitoring();
+      
+      // Get stored user credentials for logout API call
+      print('🔍 NavigationScreen: Retrieving stored session data for logout...');
+      final userData = await UserSessionService.getAllUserData();
+      final String? userId = userData['userId'];
+      final String? password = userData['password'];
+      
+      print('🔍 NavigationScreen: Retrieved session data:');
+      print('   UserId: ${userId != null ? "Found (${userId.length} chars)" : "Not found"}');
+      print('   Password: ${password != null ? "Found (${password.length} chars)" : "Not found"}');
+      print('   Username: ${userData['username'] ?? "Not found"}');
+      print('   VehicleId: ${userData['vehicleId'] ?? "Not found"}');
+      
+      if (userId == null || password == null) {
+        // No stored credentials - can't call logout API
+        print('⚠️ NavigationScreen: No stored credentials found - cannot call logout API');
+        print('   Current widget vehicleId: ${widget.vehicleId}');
+        print('   Current widget username: ${widget.username}');
+        
+        // Close loading dialog
+        if (context.mounted) {
+          Navigator.of(context).pop();
+        }
+        
+        // Show dialog asking if user wants to force logout locally
+        if (context.mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Row(
+                children: [
+                  Icon(Icons.warning, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Text('No Stored Credentials'),
+                ],
+              ),
+              content: const Text(
+                'No stored credentials found. Cannot call logout API.\n\n'
+                'Would you like to logout locally? This will clear your session but won\'t notify the server.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _forceLocalLogout(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Logout Locally'),
+                ),
+              ],
+            ),
+          );
+        }
+        print('❌ NavigationScreen: Cannot logout via API - no credentials stored.');
+        return;
+      }
+      
+      print('🚪 NavigationScreen: Attempting logout for user: $userId');
+      
+      // Call the logout API
+      final result = await AuthService.logoutUser(
+        userId: userId,
+        password: password,
+      );
+      
+      // Close loading dialog
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+      
+      // IMPORTANT: Only clear credentials when API logout is successful
+      // Credentials are stored during login and should ONLY be cleared here on successful logout
+      if (result['success'] == true) {
+        // Clear user session data ONLY after successful API logout confirmation
+        await UserSessionService.clearUserSession();
+        print('✅ NavigationScreen: API logout successful, clearing local session (credentials cleared)');
+        
+        // Navigate to login screen after successful logout
+        if (context.mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            (route) => false,
+          );
+        }
+        
+        // Show success message after navigation
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Successfully logged out'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+        print('✅ NavigationScreen: Logout successful, navigated to login screen');
+      } else {
+        // API logout failed - don't clear session, don't navigate, show error
+        print('❌ NavigationScreen: Logout API failed - keeping session active');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Logout failed. Please try again.'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 4),
+              action: SnackBarAction(
+                label: 'Retry',
+                textColor: Colors.white,
+                onPressed: () => _handleLogout(context),
+              ),
+            ),
+          );
+        }
+        print('⚠️ NavigationScreen: Logout API failed - session not cleared, user remains logged in');
+      }
+    } catch (e) {
+      print('❌ NavigationScreen: Logout error: $e');
+      
+      // Close loading dialog
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+      
+      // Network error - don't clear session, don't navigate, show error
+      print('❌ NavigationScreen: Network error during logout - keeping session active');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Network error during logout: $e. Please check your connection and try again.'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () => _handleLogout(context),
+            ),
+          ),
+        );
+      }
+      print('⚠️ NavigationScreen: Logout error occurred - session not cleared, user remains logged in');
+    }
+  }
 
   /// Handle successful buffered data sending (called from data buffer service)
   void _onBufferedDataSent(int count) {
@@ -846,36 +1123,78 @@ Future<void> _selectPlace(PlaceResult place) async {
               right: 16,
               child: Column(
                 children: [
-                  // User Info Card
-                  Material(
-                    elevation: 6,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE53E3E),
+                  // User Info Card with Logout Button
+                  Row(
+                    children: [
+                      // User Info Card
+                      Material(
+                        elevation: 6,
                         borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.person,
-                            color: Colors.white,
-                            size: 16,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE53E3E),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${widget.username} • ${widget.vehicleId}',
-                            style: const TextStyle(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.person,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${widget.username} • ${widget.vehicleId}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      // Logout Button
+                      Material(
+                        elevation: 6,
+                        borderRadius: BorderRadius.circular(8),
+                        child: InkWell(
+                          onTap: _showLogoutDialog,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
                               color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFE53E3E), width: 1.5),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.logout,
+                                  color: const Color(0xFFE53E3E),
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Logout',
+                                  style: TextStyle(
+                                    color: const Color(0xFFE53E3E),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   // Search Bar
@@ -1413,7 +1732,7 @@ Future<void> _selectPlace(PlaceResult place) async {
     }
   }
   
-  void _stopLocationTracking() async {
+  Future<void> _stopLocationTracking() async {
     // Stop foreground service
     await FlutterForegroundTask.stopService();
     

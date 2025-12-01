@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Allow cleartext (HTTP) traffic for all domains -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    
+    <!-- Specifically allow cleartext traffic for your API server -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">115.242.59.130</domain>
+    </domain-config>
+</network-security-config>
+
